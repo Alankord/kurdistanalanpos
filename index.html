@@ -997,9 +997,10 @@
 
                         <!-- دوگمەکان -->
                         <div class="btn-group">
-                            <button class="btn btn-success" onclick="completeSale()">✅ فرۆشتن</button>
+                            <button class="btn btn-success" onclick="completeSale()" title="کلیلی کۆمپیوتەر: F9 یان Enter">✅ فرۆشتن (F9)</button>
                             <button class="btn btn-info" onclick="holdSale()">⏸️ راگرتن</button>
                         </div>
+                        <button class="btn btn-warning" onclick="printLastReceipt()" title="کلیلی کۆمپیوتەر: F10">🖨️ چاپکردنی دواین پسوولە (F10)</button>
                         <button class="btn btn-danger" onclick="clearCart()">🗑️ پاککردنەوە</button>
                     </div>
                 </div>
@@ -1064,7 +1065,7 @@
                         <option value="value-desc">بەها: زۆرترین یەکەم</option>
                     </select>
                     <button class="export-btn" onclick="exportInventoryCSV()">⬇️ دەرهێنانی CSV</button>
-                    <button class="btn btn-warning" style="width: auto;" onclick="openBulkPriceModal()">💲 گۆڕینی نرخ بەکۆمەڵ</button>
+
                 </div>
 
                 <!-- فۆڕمی زیادکردنی کاڵا -->
@@ -1096,11 +1097,25 @@
                     <div class="form-row">
                         <div class="form-group">
                             <label>بڕی سەرەتایی:</label>
-                            <input type="number" id="productQuantity" class="form-control" placeholder="0">
+                            <input type="number" id="productQuantity" class="form-control" placeholder="0" step="0.001" min="0">
                         </div>
                         <div class="form-group">
                             <label>ئاستی ئاگادارکردنەوە:</label>
-                            <input type="number" id="productAlert" class="form-control" value="5">
+                            <input type="number" id="productAlert" class="form-control" value="5" step="0.001" min="0">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>یەکەی پێوانە:</label>
+                            <select id="productUnit" class="form-control">
+                                <option value="دانە">دانە</option>
+                                <option value="کیلو">کیلو (کیلویایە)</option>
+                                <option value="گرام">گرام</option>
+                                <option value="لیتر">لیتر</option>
+                                <option value="مەتر">مەتر</option>
+                                <option value="باکوو">باکوو</option>
+                                <option value="کارتۆن">کارتۆن</option>
+                            </select>
                         </div>
                     </div>
                     <div style="display: flex; gap: 10px;">
@@ -1342,53 +1357,6 @@
         </div>
     </div>
 
-    <!-- مۆداڵی گۆڕینی نرخ بەکۆمەڵ -->
-    <div class="scanner-modal" id="bulkPriceModal">
-        <div class="scanner-modal-content" style="max-width: 480px; text-align: right;">
-            <h3 style="text-align:center;">💲 گۆڕینی نرخی کاڵاکان بەکۆمەڵ</h3>
-            <p style="color:#666; font-size:13px; text-align:center; margin:5px 0 15px;">هەموو نرخی کڕین یان فرۆشتنی کاڵاکان بە یەک جار بگۆڕە</p>
-
-            <div class="form-group">
-                <label>کام نرخ بگۆڕدرێت؟</label>
-                <select id="bulkPriceField" class="form-control" onchange="updateBulkPricePreview()">
-                    <option value="price">نرخی فرۆشتن</option>
-                    <option value="cost">نرخی کڕین</option>
-                    <option value="both">هەردووکیان (فرۆشتن و کڕین)</option>
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label>شێوازی گۆڕین:</label>
-                <select id="bulkPriceMethod" class="form-control" onchange="updateBulkPricePreview()">
-                    <option value="inc-percent">زیادکردن بە ڕێژەی سەدی (%)</option>
-                    <option value="dec-percent">کەمکردنەوە بە ڕێژەی سەدی (%)</option>
-                    <option value="inc-amount">زیادکردن بە بڕی دینار</option>
-                    <option value="dec-amount">کەمکردنەوە بە بڕی دینار</option>
-                    <option value="set-fixed">دانانی نرخی نوێ بۆ هەمووی (یەک نرخ)</option>
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label id="bulkPriceValueLabel">بڕ یان ڕێژە:</label>
-                <input type="number" id="bulkPriceValue" class="form-control" placeholder="0" oninput="updateBulkPricePreview()">
-            </div>
-
-            <div class="form-group">
-                <label>بۆ کام کاڵاکان؟</label>
-                <select id="bulkPriceScope" class="form-control" onchange="updateBulkPricePreview()">
-                    <option value="all">هەموو کاڵاکانی کۆگا</option>
-                    <option value="filtered">تەنها کاڵاکانی پیشاندراو لە لیستەکە (گەڕان/فلتەر)</option>
-                </select>
-            </div>
-
-            <p id="bulkPricePreview" style="background:#f8f9fa; padding:10px; border-radius:8px; font-size:13px; color:#333; text-align:center;"></p>
-
-            <div style="display:flex; gap:10px; margin-top:10px;">
-                <button class="btn btn-success" style="flex:1;" onclick="applyBulkPriceChange()">✅ جێبەجێکردن</button>
-                <button class="btn btn-danger" style="flex:1;" onclick="closeBulkPriceModal()">❌ پاشگەزبوونەوە</button>
-            </div>
-        </div>
-    </div>
 
     <!-- تۆستی ئاگادارکردنەوە -->
     <div class="toast-container" id="toastContainer"></div>
@@ -1983,6 +1951,7 @@
         // ==================== بەشی فرۆشتن ====================
         let cart = [];
         let currentInvoiceNo = '';
+        let lastSale = null;
 
         function generateInvoiceNo() {
             const now = new Date();
@@ -2042,6 +2011,7 @@
                     price: product.price,
                     cost: product.cost || 0,
                     barcode: product.barcode,
+                    unit: product.unit || 'دانە',
                     quantity: 1
                 });
             }
@@ -2064,8 +2034,9 @@
             const products = await syncProducts();
             const product = products.find(p => p.id === cart[index].productId);
 
-            newQty = parseInt(newQty);
-            if (newQty < 1) newQty = 1;
+            newQty = parseFloat(newQty);
+            if (isNaN(newQty) || newQty <= 0) newQty = 0.001;
+            newQty = Math.round(newQty * 1000) / 1000; // max 3 decimal places
 
             if (product && newQty > product.quantity) {
                 showToast(`⚠️ ${product.name}: کۆگا نامێنێت، بڕی کۆگا دەچێتە ژێر سفر`, 'warning');
@@ -2084,12 +2055,14 @@
             } else {
                 tbody.innerHTML = cart.map((item, index) => {
                     const total = item.price * item.quantity;
+                    const unitLabel = item.unit || 'دانە';
+                    const isWeight = ['کیلو','گرام','لیتر','مەتر'].includes(unitLabel);
                     return `
                         <tr>
-                            <td>${item.name}</td>
+                            <td>${item.name} <small style="color:#667eea;">(${unitLabel})</small></td>
                             <td>${item.price.toLocaleString()}</td>
                             <td>
-                                <input type="number" value="${item.quantity}" min="1" 
+                                <input type="number" value="${item.quantity}" min="0.001" step="${isWeight ? '0.001' : '1'}"
                                        onchange="updateQuantity(${index}, this.value)">
                             </td>
                             <td>${total.toLocaleString()}</td>
@@ -2119,11 +2092,16 @@
             updateCart();
         }
 
+        let _saleProcessing = false;
+
         async function completeSale() {
+            if (_saleProcessing) return;
             if (cart.length === 0) {
                 alert('تکایە یەک کاڵا بەلانی کەمەوە زیادبکە!');
                 return;
             }
+            _saleProcessing = true;
+            try {
 
             const products = await syncProducts();
             const subTotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
@@ -2172,7 +2150,7 @@
                 }
             }
 
-            printReceipt(sale);
+            lastSale = sale;
 
             cart = [];
             const discountInput = document.getElementById('discountInput');
@@ -2185,11 +2163,25 @@
             const invoiceEl = document.getElementById('invoiceNo');
             if (invoiceEl) invoiceEl.textContent = currentInvoiceNo;
 
-            alert('✅ فرۆشتن بەسەرکەوتوویی تۆمارکرا!\nپسوولە: ' + invoiceNo);
+            showToast('✅ فرۆشتن بەسەرکەوتوویی تۆمارکرا! پسوولە: ' + invoiceNo);
+            } catch(err) {
+                console.error('completeSale error:', err);
+                showToast('❌ کێشەیەک ڕوویدا لە تۆمارکردنی فرۆشتن', 'error');
+            } finally {
+                _saleProcessing = false;
+            }
         }
 
         function holdSale() {
             alert('⏸️ فرۆشتنەکە ڕاگیرا. دەتوانیت دواتر بەردەوامی پێبدەیت.');
+        }
+
+        function printLastReceipt() {
+            if (!lastSale) {
+                showToast('هیچ پسوولەیەک نییە بۆ چاپکردن', 'error');
+                return;
+            }
+            printReceipt(lastSale);
         }
 
         function printReceipt(sale) {
@@ -2304,7 +2296,7 @@
                     <td>${p.cost.toLocaleString()}</td>
                     <td>
                         <span class="badge ${p.quantity <= 0 ? 'badge-danger' : (p.quantity <= p.alert ? 'badge-warning' : 'badge-success')}">
-                            ${p.quantity}
+                            ${p.quantity} ${p.unit || 'دانە'}
                         </span>
                     </td>
                     <td class="${profitPerUnit >= 0 ? 'profit-positive' : 'profit-negative'}">${profitPerUnit.toLocaleString()}</td>
@@ -2345,152 +2337,6 @@
         }
 
         // ==================== گۆڕینی نرخ بەکۆمەڵ بۆ هەموو کاڵاکان ====================
-        function openBulkPriceModal() {
-            const fieldEl = document.getElementById('bulkPriceField');
-            const methodEl = document.getElementById('bulkPriceMethod');
-            const valueEl = document.getElementById('bulkPriceValue');
-            const scopeEl = document.getElementById('bulkPriceScope');
-            if (fieldEl) fieldEl.value = 'price';
-            if (methodEl) methodEl.value = 'inc-percent';
-            if (valueEl) valueEl.value = '';
-            if (scopeEl) scopeEl.value = 'all';
-
-            const modal = document.getElementById('bulkPriceModal');
-            if (modal) modal.classList.add('active');
-            updateBulkPricePreview();
-        }
-
-        function closeBulkPriceModal() {
-            const modal = document.getElementById('bulkPriceModal');
-            if (modal) modal.classList.remove('active');
-        }
-
-        // وەرگرتنی لیستی کاڵاکان بەپێی بەشێ (هەموو یان تەنها ئەوانەی پیشاندراون لە لیستەکە)
-        async function getBulkScopeProducts(scope) {
-            const products = await syncProducts();
-            if (scope !== 'filtered') return products.slice();
-
-            const searchTerm = document.getElementById('productsSearchBox')?.value || '';
-            let filtered = searchTerm
-                ? products.filter(p =>
-                    p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    p.barcode.includes(searchTerm) ||
-                    (Array.isArray(p.extraBarcodes) && p.extraBarcodes.some(b => b.includes(searchTerm)))
-                  )
-                : products.slice();
-
-            const filterVal = document.getElementById('invFilterSelect')?.value || 'all';
-            if (filterVal === 'low') {
-                filtered = filtered.filter(p => p.quantity > 0 && p.quantity <= p.alert);
-            } else if (filterVal === 'out') {
-                filtered = filtered.filter(p => p.quantity <= 0);
-            }
-            return filtered;
-        }
-
-        // ژماردنی نرخی نوێ بەپێی شێوازی هەڵبژێردراو
-        function calcBulkNewValue(oldVal, method, amount) {
-            oldVal = oldVal || 0;
-            let newVal = oldVal;
-            switch (method) {
-                case 'inc-percent': newVal = oldVal * (1 + amount / 100); break;
-                case 'dec-percent': newVal = oldVal * (1 - amount / 100); break;
-                case 'inc-amount': newVal = oldVal + amount; break;
-                case 'dec-amount': newVal = oldVal - amount; break;
-                case 'set-fixed': newVal = amount; break;
-            }
-            return Math.max(0, Math.round(newVal));
-        }
-
-        async function updateBulkPricePreview() {
-            const previewEl = document.getElementById('bulkPricePreview');
-            if (!previewEl) return;
-
-            const field = document.getElementById('bulkPriceField')?.value || 'price';
-            const method = document.getElementById('bulkPriceMethod')?.value || 'inc-percent';
-            const value = parseFloat(document.getElementById('bulkPriceValue')?.value);
-            const scope = document.getElementById('bulkPriceScope')?.value || 'all';
-
-            const valueLabel = document.getElementById('bulkPriceValueLabel');
-            if (valueLabel) {
-                valueLabel.textContent = (method === 'inc-percent' || method === 'dec-percent')
-                    ? 'ڕێژەی سەدی (%):'
-                    : 'بڕ بە دینار:';
-            }
-
-            const products = await getBulkScopeProducts(scope);
-
-            if (products.length === 0) {
-                previewEl.textContent = '⚠️ هیچ کاڵایەک لەم بەشەدا نییە';
-                return;
-            }
-
-            if (isNaN(value)) {
-                previewEl.textContent = `📦 ژمارەی کاڵای دەستکاریکراو: ${products.length}`;
-                return;
-            }
-
-            const sample = products[0];
-            const fieldLabel = field === 'price' ? 'نرخی فرۆشتن' : (field === 'cost' ? 'نرخی کڕین' : 'نرخی فرۆشتن و کڕین');
-            let exampleText = '';
-            if (field === 'both') {
-                const newPrice = calcBulkNewValue(sample.price, method, value);
-                const newCost = calcBulkNewValue(sample.cost, method, value);
-                exampleText = `${sample.name}: فرۆشتن ${(sample.price||0).toLocaleString()} ← ${newPrice.toLocaleString()}، کڕین ${(sample.cost||0).toLocaleString()} ← ${newCost.toLocaleString()}`;
-            } else {
-                const newVal = calcBulkNewValue(sample[field], method, value);
-                exampleText = `${sample.name}: ${fieldLabel} ${(sample[field]||0).toLocaleString()} ← ${newVal.toLocaleString()}`;
-            }
-
-            previewEl.innerHTML = `📦 ژمارەی کاڵای دەستکاریکراو: <b>${products.length}</b><br>نموونە: ${exampleText}`;
-        }
-
-        async function applyBulkPriceChange() {
-            const field = document.getElementById('bulkPriceField')?.value || 'price';
-            const method = document.getElementById('bulkPriceMethod')?.value || 'inc-percent';
-            const value = parseFloat(document.getElementById('bulkPriceValue')?.value);
-            const scope = document.getElementById('bulkPriceScope')?.value || 'all';
-
-            if (isNaN(value)) {
-                showToast('تکایە بڕ یان ڕێژەیەک بنووسە', 'error');
-                return;
-            }
-
-            const products = await getBulkScopeProducts(scope);
-            if (products.length === 0) {
-                showToast('هیچ کاڵایەک نییە بۆ گۆڕین', 'error');
-                return;
-            }
-
-            const fieldLabel = field === 'price' ? 'نرخی فرۆشتن' : (field === 'cost' ? 'نرخی کڕین' : 'نرخی فرۆشتن و کڕین');
-            const methodLabelMap = {
-                'inc-percent': `زیادکردنی ${value}%`,
-                'dec-percent': `کەمکردنەوەی ${value}%`,
-                'inc-amount': `زیادکردنی ${value.toLocaleString()} دینار`,
-                'dec-amount': `کەمکردنەوەی ${value.toLocaleString()} دینار`,
-                'set-fixed': `دانانی نرخی نوێی ${value.toLocaleString()} دینار بۆ هەمووی`
-            };
-
-            const confirmMsg = `دڵنیای دەتەوێت ${fieldLabel}ی ${products.length} کاڵا بگۆڕیت؟\nشێواز: ${methodLabelMap[method] || method}\n\n⚠️ ئەم کارە ناتوانرێت پاشگەزبکرێتەوە!`;
-            if (!confirm(confirmMsg)) return;
-
-            let updatedCount = 0;
-            for (const p of products) {
-                if (field === 'price' || field === 'both') {
-                    p.price = calcBulkNewValue(p.price, method, value);
-                }
-                if (field === 'cost' || field === 'both') {
-                    p.cost = calcBulkNewValue(p.cost, method, value);
-                }
-                await saveProduct(p);
-                updatedCount++;
-            }
-
-            closeBulkPriceModal();
-            await loadProducts(document.getElementById('productsSearchBox')?.value || '');
-            await displayProducts();
-            showToast(`✅ نرخی ${updatedCount} کاڵا گۆڕدرا بەسەرکەوتوویی`);
-        }
 
         function showAddProductForm() {
             const form = document.getElementById('addProductForm');
@@ -2510,8 +2356,9 @@
             const barcode = document.getElementById('productBarcode')?.value.trim();
             const price = parseFloat(document.getElementById('productPrice')?.value);
             const cost = parseFloat(document.getElementById('productCost')?.value);
-            const quantity = parseInt(document.getElementById('productQuantity')?.value) || 0;
-            const alertLevel = parseInt(document.getElementById('productAlert')?.value) || 5;
+            const quantity = parseFloat(document.getElementById('productQuantity')?.value) || 0;
+            const alertLevel = parseFloat(document.getElementById('productAlert')?.value) || 5;
+            const unit = document.getElementById('productUnit')?.value || 'دانە';
 
             if (!name || !barcode || !price || !cost) {
                 showToast('تکایە هەموو خانە پێویستەکان پڕبکەرەوە!', 'error');
@@ -2542,7 +2389,8 @@
                 price,
                 cost,
                 quantity,
-                alert: alertLevel
+                alert: alertLevel,
+                unit: unit
             };
 
             await saveProduct(newProduct);
@@ -2663,14 +2511,16 @@
             const product = products.find(p => p.id === id);
             if (!product) return;
 
-            const qty = prompt('چەند دانە زیادبکرێت؟', '10');
+            const unitLabel = product.unit || 'دانە';
+            const qty = prompt(`چەند ${unitLabel} زیادبکرێت؟`, '10');
             if (qty === null) return;
 
-            product.quantity += parseInt(qty) || 0;
+            const parsedQty = parseFloat(qty) || 0;
+            product.quantity = Math.round(((product.quantity || 0) + parsedQty) * 1000) / 1000;
             await saveProduct(product);
             await loadProducts();
             await displayProducts();
-            alert('✅ بڕی ' + qty + ' دانە زیادکرا!');
+            alert(`✅ بڕی ${parsedQty} ${unitLabel} زیادکرا! (کۆی نوێ: ${product.quantity} ${unitLabel})`);
         }
 
         // ==================== بەشی کڕیاران ====================
@@ -3195,8 +3045,12 @@
             const barcodeInput = document.getElementById('barcodeInput');
             
             if (barcodeInput) {
+                let scanTimer = null;
+
                 barcodeInput.addEventListener('keypress', async function(e) {
                     if (e.key === 'Enter') {
+                        // ڕاگرتنی debounce timer بۆ ئەوەی دووجار فایر نەکات
+                        if (scanTimer) { clearTimeout(scanTimer); scanTimer = null; }
                         const barcode = this.value.trim();
                         if (barcode) {
                             await handleScannedBarcode(barcode);
@@ -3204,14 +3058,18 @@
                     }
                 });
 
-                // ئۆتۆماتیکی: زۆربەی سکانەرە بارکۆدەکانی USB/بلوتووس بە خێرایی دەنووسن و Enter دادەگرن خۆکارانە
-                let lastTime = 0;
-                barcodeInput.addEventListener('input', async function() {
-                    const currentTime = Date.now();
-                    if (currentTime - lastTime < 30 && this.value.trim().length >= 8) {
-                        await handleScannedBarcode(this.value.trim());
-                    }
-                    lastTime = currentTime;
+                // ئۆتۆماتیکی: ئەگەر سکانەر Enter نەنێرێت، چاوەڕێی وەستانی نووسین دەکەین (debounce)
+                // هەر پیتێک کە دێت کاتژمێرەکە لەسەر نوێ دەکرێتەوە، تەنیا کاتێک نووسین بە تەواوی وەستا (80ms) بارکۆدەکە دەسەلمێنین
+                barcodeInput.addEventListener('input', function() {
+                    if (scanTimer) clearTimeout(scanTimer);
+                    if (this.value.trim().length < 8) return;
+                    scanTimer = setTimeout(async () => {
+                        scanTimer = null;
+                        const finalValue = this.value.trim();
+                        if (finalValue.length >= 8) {
+                            await handleScannedBarcode(finalValue);
+                        }
+                    }, 80);
                 });
             }
 
@@ -3226,14 +3084,16 @@
                     }
                 });
 
-                let lastPbTime = 0;
+                let pbScanTimer = null;
                 productBarcodeInput.addEventListener('input', function() {
-                    const currentTime = Date.now();
-                    if (currentTime - lastPbTime < 30 && this.value.trim().length >= 8) {
-                        const nextField = document.getElementById('productPrice');
-                        if (nextField) setTimeout(() => nextField.focus(), 50);
-                    }
-                    lastPbTime = currentTime;
+                    if (pbScanTimer) clearTimeout(pbScanTimer);
+                    if (this.value.trim().length < 8) return;
+                    pbScanTimer = setTimeout(() => {
+                        if (this.value.trim().length >= 8) {
+                            const nextField = document.getElementById('productPrice');
+                            if (nextField) nextField.focus();
+                        }
+                    }, 80);
                 });
             }
 
@@ -3258,6 +3118,36 @@
             const toDate = document.getElementById('reportToDate');
             if (fromDate) fromDate.addEventListener('change', loadReports);
             if (toDate) toDate.addEventListener('change', loadReports);
+        });
+
+        // ==================== کلیلی کۆمپیوتەر بۆ فرۆشتن (جگە لە تاچ/کلیک) ====================
+        document.addEventListener('keydown', function(e) {
+            const posSection = document.getElementById('posSection');
+            const isPosActive = posSection && posSection.classList.contains('active');
+            if (!isPosActive) return;
+
+            const tag = (e.target.tagName || '').toLowerCase();
+            const isTypingField = tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable;
+
+            // F9: هەمیشە فرۆشتن تەواو دەکات، تەنانەت ئەگەر فۆکۆس لەسەر خانەی بارکۆد/گەڕان بێت
+            if (e.key === 'F9') {
+                e.preventDefault();
+                completeSale();
+                return;
+            }
+
+            // F10: چاپکردنی دواین پسوولە
+            if (e.key === 'F10') {
+                e.preventDefault();
+                printLastReceipt();
+                return;
+            }
+
+            // Enter: تەنیا کاتێک فۆکۆس لەسەر خانەیەکی نووسین نییە (بۆ ئەوەی سکانی بارکۆد و گەڕان تێکنەدرێت)
+            if (e.key === 'Enter' && !isTypingField) {
+                e.preventDefault();
+                completeSale();
+            }
         });
 
         // ==================== گۆڕینی بەشەکان ====================
