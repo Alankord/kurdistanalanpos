@@ -2134,26 +2134,18 @@
         const db = firebase.firestore();
 
         // ===== OFFLINE MODE - true = Firebase غەیرچالاک =====
-        let OFFLINE_MODE = !navigator.onLine; // خۆکار دیاریدەکرێت بەپێی دۆخی ڕاستەقینەی ئینتەرنێت، نەک هەمیشە true
-
-        // دوگمەی ئۆفلاین/ئۆنلاین لە دەستپێکدا بگونجێنە لەگەڵ OFFLINE_MODE ـی ڕاستەقینە
-        (function syncOfflineButtonUI() {
-            const btn = document.getElementById('offlineModeBtn');
-            if (!btn) return;
-            if (OFFLINE_MODE) {
-                btn.textContent = '📵 ئۆفلاین: چالاکە';
-                btn.style.borderColor = 'var(--amber)';
-                btn.style.color = 'var(--amber)';
-                btn.style.background = 'var(--amber-glow)';
-            } else {
-                btn.textContent = '🟢 ئۆنلاین: چالاکە';
-                btn.style.borderColor = 'var(--green)';
-                btn.style.color = 'var(--green)';
-                btn.style.background = 'var(--green-dim)';
-            }
-        })();
+        let OFFLINE_MODE = true; // true بکە کاتێک quota تەواوبوو
 
         function toggleOfflineMode() {
+            const goingOnline = OFFLINE_MODE; // ئێستا ئۆفلاینین، دەمانەوێت بچینە ئۆنلاین
+            if (goingOnline) {
+                const pin = prompt('بۆ چوونە دۆخی ئۆنلاین و هاوکاتکردن، کۆدی نهێنی (PIN) بنووسە:');
+                if (pin === null) return; // پاشگەزبوونەوە
+                if (pin.trim() !== getSharedPin()) {
+                    alert('❌ کۆدی نهێنی هەڵەیە - چوونە ئۆنلاین هەڵوەشایەوە');
+                    return;
+                }
+            }
             OFFLINE_MODE = !OFFLINE_MODE;
             const btn = document.getElementById('offlineModeBtn');
             if (OFFLINE_MODE) {
@@ -2168,8 +2160,21 @@
                 btn.style.borderColor = 'var(--green)';
                 btn.style.color = 'var(--green)';
                 btn.style.background = 'var(--green-dim)';
-                updateConnectionStatus('online');
-                showToast('🟢 حالتی ئۆنلاین - Firebase چالاکبوو', 'success');
+                updateConnectionStatus('syncing');
+                showToast('🟢 حالتی ئۆنلاین - هاوکاتکردن دەستپێدەکات...', 'success');
+                processSyncQueue().then(async () => {
+                    await syncProducts();
+                    await syncCustomers();
+                    updateConnectionStatus('online');
+                    showToast('✅ هاوکاتکردن تەواو بوو', 'success');
+                    const reportsSection = document.getElementById('reportsSection');
+                    if (reportsSection && reportsSection.classList.contains('active')) {
+                        await loadReports();
+                    }
+                }).catch((err) => {
+                    console.error('Sync error after going online:', err);
+                    updateConnectionStatus('online');
+                });
             }
         }
 
@@ -2444,34 +2449,10 @@
             }
             try {
                 const snapshot = await db.collection('products').get({ source: 'server' });
-                let products = [];
+                const products = [];
                 snapshot.forEach(doc => {
                     products.push({ id: doc.id, ...doc.data() });
                 });
-
-                // پاراستنی داتای لوکالی کە هێشتا نەنێردراوە بۆ Firebase (هێشتا لەناو syncQueue ماوە)
-                // وای نەبێت کاڵای نوێ/گۆڕاوی نەنێردراو بە سادەیی بە overwrite کردنی لەناوبچێت
-                const pendingQueue = JSON.parse(localStorage.getItem('syncQueue') || '[]');
-                const pendingProductIds = new Set();
-                const pendingDeleteIds = new Set();
-                pendingQueue.forEach(item => {
-                    if (item.type === 'product') pendingProductIds.add(item.data.id.toString());
-                    else if (item.type === 'deleteProduct') pendingDeleteIds.add(item.data.id.toString());
-                });
-
-                if (pendingDeleteIds.size > 0) {
-                    products = products.filter(p => !pendingDeleteIds.has(p.id.toString()));
-                }
-                if (pendingProductIds.size > 0) {
-                    const localProducts = JSON.parse(localStorage.getItem('products') || '[]');
-                    localProducts.forEach(lp => {
-                        if (pendingProductIds.has(lp.id.toString())) {
-                            const idx = products.findIndex(p => p.id.toString() === lp.id.toString());
-                            if (idx >= 0) products[idx] = lp; else products.push(lp);
-                        }
-                    });
-                }
-
                 localStorage.setItem('products', JSON.stringify(products));
                 return products;
             } catch (error) {
@@ -2552,33 +2533,10 @@
             }
             try {
                 const snapshot = await db.collection('customers').get({ source: 'server' });
-                let customers = [];
+                const customers = [];
                 snapshot.forEach(doc => {
                     customers.push({ id: doc.id, ...doc.data() });
                 });
-
-                // پاراستنی داتای لوکالی کە هێشتا نەنێردراوە بۆ Firebase
-                const pendingQueue = JSON.parse(localStorage.getItem('syncQueue') || '[]');
-                const pendingCustomerIds = new Set();
-                const pendingDeleteIds = new Set();
-                pendingQueue.forEach(item => {
-                    if (item.type === 'customer') pendingCustomerIds.add(item.data.id.toString());
-                    else if (item.type === 'deleteCustomer') pendingDeleteIds.add(item.data.id.toString());
-                });
-
-                if (pendingDeleteIds.size > 0) {
-                    customers = customers.filter(c => !pendingDeleteIds.has(c.id.toString()));
-                }
-                if (pendingCustomerIds.size > 0) {
-                    const localCustomers = JSON.parse(localStorage.getItem('customers') || '[]');
-                    localCustomers.forEach(lc => {
-                        if (pendingCustomerIds.has(lc.id.toString())) {
-                            const idx = customers.findIndex(c => c.id.toString() === lc.id.toString());
-                            if (idx >= 0) customers[idx] = lc; else customers.push(lc);
-                        }
-                    });
-                }
-
                 localStorage.setItem('customers', JSON.stringify(customers));
                 return customers;
             } catch (error) {
@@ -2656,6 +2614,7 @@
         async function saveSale(sale) {
             if (OFFLINE_MODE || !navigator.onLine) {
                 sale.offlineSaved = true;
+                sale.id = sale.id || sale.invoiceNo;
                 sale.localId = sale.localId || ('local-' + Date.now());
                 // تەنیا یەکجار بنووسە بۆ queue — ئەگەر پێشتر هەبوو نەیزیادبکە
                 const existingQueue = JSON.parse(localStorage.getItem('syncQueue') || '[]');
@@ -2685,6 +2644,7 @@
             } catch (error) {
                 console.error('Error saving sale:', error);
                 sale.offlineSaved = true;
+                sale.id = sale.id || sale.invoiceNo;
                 sale.localId = sale.localId || ('local-' + Date.now());
                 const existingQueue = JSON.parse(localStorage.getItem('syncQueue') || '[]');
                 const alreadyQueued = existingQueue.find(q => q.type === 'sale' && q.data.invoiceNo === sale.invoiceNo);
@@ -2697,6 +2657,8 @@
                 return false;
             }
         }
+
+
 
         // ==================== گەڕاندنەوەی فرۆشتن (Returns) ====================
         async function syncReturns() {
@@ -2925,35 +2887,30 @@
                 // ئۆفلاین queue بنێرە
                 await processSyncQueue();
 
-                // بررسی قێوی مایەوە — پێش هەر شتی دیکە
+                // داتاکان نوێبکەرەوە
+                await syncProducts();
+                await syncCustomers();
+
+                // بەشی چالاک نوێبکەرەوە
+                const reportsSection = document.getElementById('reportsSection');
+                if (reportsSection && reportsSection.classList.contains('active')) await loadReports();
+                const productsSection = document.getElementById('productsSection');
+                if (productsSection && productsSection.classList.contains('active')) await loadProducts();
+                const customersSection = document.getElementById('customersSection');
+                if (customersSection && customersSection.classList.contains('active')) await loadCustomers();
+                const cardsSection = document.getElementById('cardsSection');
+                if (cardsSection && cardsSection.classList.contains('active')) await loadCardReports();
+
+                // بررسی قێوی مایەوە
                 const remaining = JSON.parse(localStorage.getItem('syncQueue') || '[]');
-
                 if (remaining.length === 0) {
-                    // تەنیا کاتێک هەموو داتای لوکالی بە سەرکەوتووی نێردرا بۆ Firebase،
-                    // ئیتر دەتوانین بە سەلامەتی داتا لە Firebase بکێشینەوە و لوکالی
-                    // overwrite بکەین — وای نابێت داتای نوێی نەنێردراو لەناوبچێت
-                    await syncProducts();
-                    await syncCustomers();
-
-                    // بەشی چالاک نوێبکەرەوە
-                    const reportsSection = document.getElementById('reportsSection');
-                    if (reportsSection && reportsSection.classList.contains('active')) await loadReports();
-                    const productsSection = document.getElementById('productsSection');
-                    if (productsSection && productsSection.classList.contains('active')) await loadProducts();
-                    const customersSection = document.getElementById('customersSection');
-                    if (customersSection && customersSection.classList.contains('active')) await loadCustomers();
-                    const cardsSection = document.getElementById('cardsSection');
-                    if (cardsSection && cardsSection.classList.contains('active')) await loadCardReports();
-
                     localStorage.setItem('lastSyncTime', new Date().toISOString());
                     updateConnectionStatus('online');
                     showSyncResult(true, 'هاوکاتکردن تەواو بوو ✅');
                     updateSyncBtnLabel();
                 } else {
-                    // ناردن سەرنەکەوت یان بەشێک لێی سەرنەکەوت — ڕاستەوخۆ کێشانی
-                    // داتا ئەنجام مەدە، چونکی دەبێتە هۆی لەناوچوونی داتای لوکالیی نەنێردراو
                     updateConnectionStatus('offline');
-                    showSyncResult(false, `${remaining.length} داتا نەتوانران بنێردرێن ❌ — داتای لوکالیت پارێزراوە`);
+                    showSyncResult(false, `${remaining.length} داتا نەتوانران بنێردرێن ❌`);
                 }
             } catch (err) {
                 console.error('Manual sync error:', err);
@@ -3025,9 +2982,6 @@
 
         // Auto-sync every 5 minutes (لە 30 چرکە گۆڕدرا بۆ 5 خولەک بۆ کەمکردنەوەی بەکارهێنانی Quota)
         setInterval(processSyncQueue, 300000);
-        // هەروەها یەکسەر لە دەستپێکی کردنەوەی ئەپدا queue ـی مابوو بنێرە،
-        // وای نەبێت بەکارهێنەر بۆ ٥ خولەک یان sync ـی دەستی چاوەڕێبکات
-        processSyncQueue();
 
         // ==================== Initialize with Sample Data ====================
         async function initializeData() {
@@ -4952,9 +4906,12 @@
             return { start, end };
         }
 
+        let cachedSalesForReports = [];
+
         async function loadReports() {
             console.log('Loading reports...');
             const sales = await syncSales();
+            cachedSalesForReports = sales;
             const products = await syncProducts();
             const customers = await syncCustomers();
             const returns = await syncReturns();
@@ -5100,9 +5057,9 @@
                         <td>${paymentMethodText[s.paymentMethod] || s.paymentMethod || 'N/A'}</td>
                         <td>
                             <button class="btn btn-info" style="width: auto; padding: 5px 10px; font-size: 12px; margin: 2px;" 
-                                    onclick="viewReceipt('${s.id}')">🖨️ پسوڵە</button>
+                                    onclick="viewReceipt('${s.id || s.invoiceNo}')">🖨️ پسوڵە</button>
                             <button class="btn btn-warning" style="width: auto; padding: 5px 10px; font-size: 12px; margin: 2px;" 
-                                    onclick="openReturnModal('${s.id}')">↩️ گەڕاندنەوە</button>
+                                    onclick="openReturnModal('${s.id || s.invoiceNo}')">↩️ گەڕاندنەوە</button>
                         </td>
                     </tr>
                 `;
@@ -5154,9 +5111,18 @@
             });
         }
 
-        function viewReceipt(id) {
-            const sales = JSON.parse(localStorage.getItem('sales') || '[]');
-            const sale = sales.find(s => s.id === id);
+        async function viewReceipt(id) {
+            let sale = cachedSalesForReports.find(s => s.id === id || s.invoiceNo === id);
+            if (!sale) {
+                const localSales = JSON.parse(localStorage.getItem('sales') || '[]');
+                sale = localSales.find(s => s.id === id || s.invoiceNo === id);
+            }
+            if (!sale) {
+                // داتای ناوخۆیی نوێ نییە، بۆیە دووبارە لە سێرڤەرەوە هاوکات دەکەینەوە
+                const freshSales = await syncSales();
+                cachedSalesForReports = freshSales;
+                sale = freshSales.find(s => s.id === id || s.invoiceNo === id);
+            }
             if (sale) {
                 printReceipt(sale);
             } else {
@@ -5168,8 +5134,16 @@
         let currentReturnSale = null;
 
         async function openReturnModal(saleId) {
-            const sales = JSON.parse(localStorage.getItem('sales') || '[]');
-            const sale = sales.find(s => s.id === saleId);
+            let sale = cachedSalesForReports.find(s => s.id === saleId || s.invoiceNo === saleId);
+            if (!sale) {
+                const localSales = JSON.parse(localStorage.getItem('sales') || '[]');
+                sale = localSales.find(s => s.id === saleId || s.invoiceNo === saleId);
+            }
+            if (!sale) {
+                const freshSales = await syncSales();
+                cachedSalesForReports = freshSales;
+                sale = freshSales.find(s => s.id === saleId || s.invoiceNo === saleId);
+            }
             if (!sale) {
                 showToast('پسوڵە نەدۆزرایەوە!', 'error');
                 return;
