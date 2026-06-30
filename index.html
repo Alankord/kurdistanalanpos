@@ -2134,7 +2134,24 @@
         const db = firebase.firestore();
 
         // ===== OFFLINE MODE - true = Firebase غەیرچالاک =====
-        let OFFLINE_MODE = true; // true بکە کاتێک quota تەواوبوو
+        let OFFLINE_MODE = !navigator.onLine; // خۆکار دیاریدەکرێت بەپێی دۆخی ڕاستەقینەی ئینتەرنێت، نەک هەمیشە true
+
+        // دوگمەی ئۆفلاین/ئۆنلاین لە دەستپێکدا بگونجێنە لەگەڵ OFFLINE_MODE ـی ڕاستەقینە
+        (function syncOfflineButtonUI() {
+            const btn = document.getElementById('offlineModeBtn');
+            if (!btn) return;
+            if (OFFLINE_MODE) {
+                btn.textContent = '📵 ئۆفلاین: چالاکە';
+                btn.style.borderColor = 'var(--amber)';
+                btn.style.color = 'var(--amber)';
+                btn.style.background = 'var(--amber-glow)';
+            } else {
+                btn.textContent = '🟢 ئۆنلاین: چالاکە';
+                btn.style.borderColor = 'var(--green)';
+                btn.style.color = 'var(--green)';
+                btn.style.background = 'var(--green-dim)';
+            }
+        })();
 
         function toggleOfflineMode() {
             OFFLINE_MODE = !OFFLINE_MODE;
@@ -3008,6 +3025,9 @@
 
         // Auto-sync every 5 minutes (لە 30 چرکە گۆڕدرا بۆ 5 خولەک بۆ کەمکردنەوەی بەکارهێنانی Quota)
         setInterval(processSyncQueue, 300000);
+        // هەروەها یەکسەر لە دەستپێکی کردنەوەی ئەپدا queue ـی مابوو بنێرە،
+        // وای نەبێت بەکارهێنەر بۆ ٥ خولەک یان sync ـی دەستی چاوەڕێبکات
+        processSyncQueue();
 
         // ==================== Initialize with Sample Data ====================
         async function initializeData() {
