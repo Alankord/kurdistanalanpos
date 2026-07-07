@@ -2322,7 +2322,141 @@
             _productsCache = products;
             _productBarcodeIndex = null; // پێویستە دووبارە دروستبکرێتەوە دوای هەر گۆڕانکارییەک
             _productIdIndex = null;
+            _productSearchIndex = null; // ئینگێکسی گەڕانیش پێویستە دووبارە دروستبکرێتەوە
             return safeSetLocalStorage('products', JSON.stringify(products));
+        }
+
+        // ==================== ئینگێکسی گەڕانی کاڵا — بۆ خێراکردنی گەڕان لەگەڵ ١٠،٠٠٠+ کاڵا ====================
+        // پێشتر: هەر پیتێک لە بۆکسی گەڕاندا دەنووسرا، products.filter(...includes...) بانگ دەکرا کە
+        // تەواوی لیستی کاڵاکانی دەگەڕا (O(n) بۆ هەر پیتێک). ئێستا وشەکانی ناوی کاڵا و بارکۆدەکان
+        // دەخرێنە ناو Map، بۆیە زۆربەی گەڕانەکان O(دەقی وشەکان) دەبن نەک O(کاڵاکان).
+        let _productSearchIndex = null; // { words: Map<word, product[]>, barcodes: Map<code, product> }
+
+        function buildProductSearchIndex() {
+            const products = getProductsCache();
+            const words = new Map();
+            const barcodes = new Map();
+            for (const p of products) {
+                if (p.barcode) barcodes.set(String(p.barcode), p);
+                if (Array.isArray(p.extraBarcodes)) {
+                    for (const b of p.extraBarcodes) barcodes.set(String(b), p);
+                }
+                const name = (p.name || '').toLowerCase();
+                for (const w of name.split(/\s+/)) {
+                    if (w.length < 2) continue;
+                    if (!words.has(w)) words.set(w, []);
+                    words.get(w).push(p);
+                }
+            }
+            _productSearchIndex = { words, barcodes };
+        }
+
+        function getProductSearchIndex() {
+            if (_productSearchIndex === null) buildProductSearchIndex();
+            return _productSearchIndex;
+        }
+
+        // گەڕانی خێرا: یەکەم هەوڵ بەسەر ئینگێکسەوە (بارکۆدی وردی و وشەی دەستپێک)، ئەگەر هیچ نەدۆزرایەوە
+        // (بۆ نموونە گەڕان بە ناوەڕاستی وشەیەک) کۆتا هەوڵ گەڕانێکی تەواوە بەسەر هەموو کاڵاکانەوە.
+        function fastSearchProducts(term) {
+            const products = getProductsCache();
+            const trimmed = (term || '').trim();
+            if (!trimmed) return products.slice();
+            const lower = trimmed.toLowerCase();
+            const idx = getProductSearchIndex();
+
+            // ١. بارکۆدی ورد — خێراترین حاڵەت، تایبەت بە سکانکردن
+            if (idx.barcodes.has(trimmed)) {
+                return [idx.barcodes.get(trimmed)];
+            }
+
+            // ٢. وشەکانی ناو کە دەستپێکیان لەگەڵ دەقی گەڕان یەکدەگرێتەوە (نزیکەی O(1))
+            const seen = new Set();
+            const results = [];
+            for (const [word, list] of idx.words) {
+                if (word.startsWith(lower) || lower.startsWith(word)) {
+                    for (const p of list) {
+                        if (!seen.has(p.id)) { seen.add(p.id); results.push(p); }
+                    }
+                }
+            }
+
+            // ٣. بارکۆدی ناتەواو (نیوەی بارکۆد نووسراوە)
+            for (const [code, p] of idx.barcodes) {
+                if (code.includes(trimmed) && !seen.has(p.id)) {
+                    seen.add(p.id);
+                    results.push(p);
+                }
+            }
+
+            if (results.length > 0) return results;
+
+            // ٤. کۆتا هەوڵ: هیچ لە ئینگێکس نەدۆزرایەوە (بۆ نموونە گەڕان بەناوەڕاستی وشەیەک)،
+            //    بۆیە تەواوی لیست بگەڕێ — هێواشترە بەڵام هەرگیز ئەنجام لەدەست نادات
+            return products.filter(p =>
+                (p.name || '').toLowerCase().includes(lower) ||
+                String(p.barcode || '').includes(trimmed) ||
+                (Array.isArray(p.extraBarcodes) && p.extraBarcodes.some(b => String(b).includes(trimmed)))
+            );
+        }
+
+        // ==================== کاشی مێمۆری بۆ sales / customers / cards / cardSales ====================
+        // پێشتر: فەنکشنەکانی sync (syncSales, syncCustomers, syncCards, syncCardSales) و زۆر شوێنی تر
+        // ڕاستەوخۆ localStorage.getItem بەکاردەهێنا، کە بۆ هەر بانگکردنێک دیسکی دەخوێندەوە. ئێستا
+        // هەر یەکێک تەنیا یەک جار لە RAMدا هەڵدەگیرێت و لەوێوە بەکاردێت، وەک _productsCache.
+        let _salesCache = null;
+        let _customersCache = null;
+        let _cardsCache = null;
+        let _cardSalesCache = null;
+
+        function getSalesCache() {
+            if (_salesCache === null) {
+                _salesCache = JSON.parse(localStorage.getItem('sales') || '[]');
+            }
+            return _salesCache;
+        }
+
+        function getCustomersCache() {
+            if (_customersCache === null) {
+                _customersCache = JSON.parse(localStorage.getItem('customers') || '[]');
+            }
+            return _customersCache;
+        }
+
+        function getCardsCache() {
+            if (_cardsCache === null) {
+                _cardsCache = JSON.parse(localStorage.getItem('cards') || '[]');
+            }
+            return _cardsCache;
+        }
+
+        function getCardSalesCache() {
+            if (_cardSalesCache === null) {
+                _cardSalesCache = JSON.parse(localStorage.getItem('cardSales') || '[]');
+            }
+            return _cardSalesCache;
+        }
+
+        // پاشەکەوتکردن: هەم کاشی RAM و هەم localStorage نوێ دەکاتەوە، بۆیە هەمیشە هاوکاتن
+        function saveSalesCache(sales) {
+            _salesCache = sales;
+            _shiftTotalCache = null;
+            return safeSetLocalStorage('sales', JSON.stringify(sales));
+        }
+
+        function saveCustomersCache(customers) {
+            _customersCache = customers;
+            return safeSetLocalStorage('customers', JSON.stringify(customers));
+        }
+
+        function saveCardsCache(cards) {
+            _cardsCache = cards;
+            return safeSetLocalStorage('cards', JSON.stringify(cards));
+        }
+
+        function saveCardSalesCache(cardSales) {
+            _cardSalesCache = cardSales;
+            return safeSetLocalStorage('cardSales', JSON.stringify(cardSales));
         }
 
         // ==================== ئەرشیفی درێژخایەن بە IndexedDB (نزیکەی چەند گیگابایت، نەک ١٠MB) ====================
@@ -2467,7 +2601,7 @@
             }
             const body = document.getElementById('archiveViewerBody');
             body.innerHTML = '<p style="text-align:center; color:var(--text3);">بارکردن...</p>';
-            const liveSales = JSON.parse(localStorage.getItem('sales') || '[]');
+            const liveSales = getSalesCache();
             const archivedSales = await getAllArchived('sales');
             const seen = new Set();
             const all = [...liveSales, ...archivedSales].filter(s => {
@@ -2513,7 +2647,7 @@
                 //      کۆنترین دانەکان (دوورترین لە sync‌کردن) ئەرشیف دەکرێن بۆ IndexedDB — هیچیان
                 //      لەناوناچن، کاتێک چیتە ئۆنلاین processSyncQueue بەردەوام دەیاننێرێت بۆ Firebase.
                 // لە قۆناغی توندتر، سنوور زۆر کەمتر دەکرێتەوە بۆ ئازادکردنی شوێنی زیاتر.
-                const SYNC_QUEUE_LOCAL_LIMIT = level === 1 ? 300 : (level === 2 ? 100 : 25);
+                const SYNC_QUEUE_LOCAL_LIMIT = level === 1 ? 100 : (level === 2 ? 50 : 10);
                 if (deduped.length > SYNC_QUEUE_LOCAL_LIMIT) {
                     deduped.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0)); // کۆنترین یەکەم
                     const overflowCount = deduped.length - SYNC_QUEUE_LOCAL_LIMIT;
@@ -2528,7 +2662,7 @@
             // ٢. sales: تەنیا نوێترین دانەکان لە بیرگەی خێرا هەڵدەگرێت، بەڵام پێش سڕینەوە
             //    کۆنترینەکان ئەرشیف دەکرێن بۆ IndexedDB — هیچ فرۆشتنێک لەناوناچێت
             try {
-                const sales = JSON.parse(localStorage.getItem('sales') || '[]');
+                const sales = getSalesCache();
                 const LIMIT = level === 1 ? 800 : (level === 2 ? 300 : 100);
                 if (sales.length > LIMIT) {
                     const pending = sales.filter(s => s.offlineSaved === true);
@@ -2537,14 +2671,13 @@
                     const keepSynced = syncedAll.slice(0, keepCount);
                     const toArchive = syncedAll.slice(keepCount);
                     archiveRecords('sales', toArchive); // async، لە پاشەوە
-                    localStorage.setItem('sales', JSON.stringify([...pending, ...keepSynced]));
-                    _shiftTotalCache = null;
+                    saveSalesCache([...pending, ...keepSynced]);
                 }
             } catch (e) { console.error('trim sales failed', e); }
 
             // ٣. cardSales: هەمان شێوازی sales
             try {
-                const cardSales = JSON.parse(localStorage.getItem('cardSales') || '[]');
+                const cardSales = getCardSalesCache();
                 const LIMIT = level === 1 ? 800 : (level === 2 ? 300 : 100);
                 if (cardSales.length > LIMIT) {
                     const pending = cardSales.filter(s => s.offlineSaved === true);
@@ -2553,7 +2686,7 @@
                     const keepSynced = syncedAll.slice(0, keepCount);
                     const toArchive = syncedAll.slice(keepCount);
                     archiveRecords('cardSales', toArchive); // async، لە پاشەوە
-                    localStorage.setItem('cardSales', JSON.stringify([...pending, ...keepSynced]));
+                    saveCardSalesCache([...pending, ...keepSynced]);
                 }
             } catch (e) { console.error('trim cardSales failed', e); }
         }
@@ -2591,8 +2724,8 @@
             const cutoff = new Date();
             cutoff.setDate(cutoff.getDate() - KEEP_DAYS);
 
-            const sales = JSON.parse(localStorage.getItem('sales') || '[]');
-            const cardSales = JSON.parse(localStorage.getItem('cardSales') || '[]');
+            const sales = getSalesCache();
+            const cardSales = getCardSalesCache();
 
             const salesToExport = sales.filter(s => s.createdAt && new Date(s.createdAt) < cutoff);
             const salesToKeep = sales.filter(s => !s.createdAt || new Date(s.createdAt) >= cutoff);
@@ -2645,8 +2778,8 @@
                 safeSetLocalStorage('syncQueue', JSON.stringify(filteredQueue));
             } catch (e) { console.error('cleanup syncQueue failed', e); }
 
-            safeSetLocalStorage('sales', JSON.stringify(salesToKeep));
-            safeSetLocalStorage('cardSales', JSON.stringify(cardSalesToKeep));
+            saveSalesCache(salesToKeep);
+            saveCardSalesCache(cardSalesToKeep);
             _shiftTotalCache = null;
 
             showToast(`✅ ${totalCount.toLocaleString()} تۆمار دەرچوو و بیرگە ئازادکرا`, 'success');
@@ -2791,6 +2924,33 @@
                 );
             });
         }
+
+        // ==================== پاککردنەوەی خۆکاری کاشی RAM ====================
+        // دوای ماوەیەکی درێژی کارکردن (چەند کاتژمێر بێ ڕیفڕێش)، کاشەکان لە RAMدا کۆدەبنەوە.
+        // ئەم فەنکشنە هەموو کاشەکان پووچەڵ دەکاتەوە بۆ ئازادکردنی مێمۆری — نەخۆشی نییە، چونکە
+        // هەر کاشێک lazy‌یە و خۆکارانە دووبارە لە localStorage دروست دەبێتەوە کاتێک دواتر پێویستی پێی بێت.
+        function clearMemoryCache() {
+            _productsCache = null;
+            _productBarcodeIndex = null;
+            _productIdIndex = null;
+            _productSearchIndex = null;
+            _salesCache = null;
+            _customersCache = null;
+            _cardsCache = null;
+            _cardSalesCache = null;
+            _shiftTotalCache = null;
+
+            // دەستپێکردنی garbage collector ئەگەر browser پشتگیری بکات (بۆ نموونە Chrome بە --js-flags=--expose-gc)
+            if (window.gc) {
+                try { window.gc(); } catch (e) {}
+            }
+        }
+
+        // هەر ٥ خولەک جارێک. تێبینی: بەقەستە تەنیا بە timer بانگ دەکرێت، نەک لە کاتی گۆڕینی
+        // بەشەکاندا (نوێژینکردنەوەی ناڤیگەیشن) — چونکە لەگەڵ ١٠،٠٠٠ کاڵا، JSON.parse‌کردنەوەی
+        // دووبارە لە هەر گۆڕینی بەشێکدا (کە زۆر جار ڕوودەدات) خۆی دەبووایە هۆکاری هێواشی، هەمان
+        // کێشەیەک کە ئەم کاشکردنە سەرەتا بۆ چارەسەرکردنی دروستکرابوو.
+        setInterval(clearMemoryCache, 300000);
 
         // نوێکردنەوەی خۆکاری هەر ٣٠ چرکە جارێک، بۆ ئەوەی بەکارهێنەر هەمیشە ژمارەیەکی نوێ ببینێت
         setInterval(updateQueuePendingBadge, 30000);
@@ -3135,7 +3295,7 @@
 
         async function syncCustomers() {
             if (OFFLINE_MODE || !navigator.onLine) {
-                return JSON.parse(localStorage.getItem('customers') || '[]');
+                return getCustomersCache();
             }
             try {
                 const snapshot = await db.collection('customers').get({ source: 'server' });
@@ -3143,20 +3303,20 @@
                 snapshot.forEach(doc => {
                     customers.push({ id: doc.id, ...doc.data() });
                 });
-                safeSetLocalStorage('customers', JSON.stringify(customers));
+                saveCustomersCache(customers);
                 return customers;
             } catch (error) {
                 console.error('Error syncing customers:', error);
-                return JSON.parse(localStorage.getItem('customers') || '[]');
+                return getCustomersCache();
             }
         }
 
         async function saveCustomer(customer) {
             // هەمیشە ڕاستەوخۆ localStorage نوێ بکەرەوە
-            const customers = JSON.parse(localStorage.getItem('customers') || '[]');
+            const customers = getCustomersCache();
             const index = customers.findIndex(c => c.id === customer.id);
             if (index >= 0) { customers[index] = customer; } else { customers.push(customer); }
-            safeSetLocalStorage('customers', JSON.stringify(customers));
+            saveCustomersCache(customers);
 
             if (OFFLINE_MODE || !navigator.onLine) {
                 queueForSync('customer', customer);
@@ -3185,7 +3345,7 @@
 
         async function syncSales() {
             if (OFFLINE_MODE || !navigator.onLine) {
-                return JSON.parse(localStorage.getItem('sales') || '[]');
+                return getSalesCache();
             }
             try {
                 const snapshot = await db.collection('sales')
@@ -3199,7 +3359,7 @@
 
                 // تەنیا پسوولەی ئۆفلاین کە هێشتا لە سێرڤەر نییە بگرە
                 const serverInvoiceNos = new Set(serverSales.map(s => s.invoiceNo));
-                const localSales = JSON.parse(localStorage.getItem('sales') || '[]');
+                const localSales = getSalesCache();
                 const trulyPending = localSales.filter(s => s.offlineSaved === true && !serverInvoiceNos.has(s.invoiceNo));
 
                 // دووبارەکان لابێن بە invoiceNo
@@ -3209,12 +3369,12 @@
                     seen.add(s.invoiceNo);
                     return true;
                 });
-                safeSetLocalStorage('sales', JSON.stringify(merged));
+                saveSalesCache(merged);
                 _shiftTotalCache = null;
                 return merged;
             } catch (error) {
                 console.error('Error syncing sales:', error);
-                return JSON.parse(localStorage.getItem('sales') || '[]');
+                return getSalesCache();
             }
         }
 
@@ -3230,11 +3390,11 @@
             const existingQueue = JSON.parse(localStorage.getItem('syncQueue') || '[]');
             const alreadyQueued = existingQueue.find(q => q.type === 'sale' && q.data.invoiceNo === sale.invoiceNo);
             if (!alreadyQueued) queueForSync('sale', sale);
-            const salesInit = JSON.parse(localStorage.getItem('sales') || '[]');
+            const salesInit = getSalesCache();
             const dupIdxInit = salesInit.findIndex(s => s.invoiceNo === sale.invoiceNo);
             if (dupIdxInit < 0) salesInit.unshift(sale);
             else salesInit[dupIdxInit] = sale;
-            safeSetLocalStorage('sales', JSON.stringify(salesInit));
+            saveSalesCache(salesInit);
             // نوێکردنەوەی خێرای کاشی کۆی شیفت (بەبێ پارسکردنەوەی هەموو لیستەکە) — بڕوانە updateCartShiftCounter
             if (typeof _shiftTotalCache !== 'undefined' && _shiftTotalCache !== null) {
                 if (dupIdxInit < 0) _shiftTotalCache.total += (sale.total || 0);
@@ -3256,10 +3416,10 @@
                 await db.collection('sales').doc(sale.invoiceNo).set(saleData);
                 sale.id = sale.invoiceNo;
                 sale.offlineSaved = false;
-                const sales = JSON.parse(localStorage.getItem('sales') || '[]');
+                const sales = getSalesCache();
                 const dupIdx = sales.findIndex(s => s.invoiceNo === sale.invoiceNo);
                 if (dupIdx >= 0) sales[dupIdx] = sale;
-                safeSetLocalStorage('sales', JSON.stringify(sales));
+                saveSalesCache(sales);
                 // سەرکەوتوو بوو — لە syncQueue لایبدە، ئەگینا دووجار دەنێردرێتەوە
                 const q2 = JSON.parse(localStorage.getItem('syncQueue') || '[]');
                 const filteredQ2 = q2.filter(q => !(q.type === 'sale' && q.data.invoiceNo === sale.invoiceNo));
@@ -3387,10 +3547,10 @@
                                 // set() بەجێی add() — ئەگەر پێشتر هەبێت، دووبارە نانووسێت
                                 batch.set(db.collection('sales').doc(invoiceNoToSync), saleData);
                                 postActions.push(() => {
-                                    const lsSales = JSON.parse(localStorage.getItem('sales') || '[]');
+                                    const lsSales = getSalesCache();
                                     const idx = lsSales.findIndex(s => s.invoiceNo === invoiceNoToSync);
                                     if (idx >= 0) { lsSales[idx].id = invoiceNoToSync; lsSales[idx].offlineSaved = false; delete lsSales[idx].localId; }
-                                    safeSetLocalStorage('sales', JSON.stringify(lsSales));
+                                    saveSalesCache(lsSales);
                                 });
                                 break;
                             }
@@ -3405,10 +3565,10 @@
                                 delete csData.offlineSaved;
                                 batch.set(db.collection('cardSales').doc(csData.id), csData);
                                 postActions.push(() => {
-                                    const lsCardSales = JSON.parse(localStorage.getItem('cardSales') || '[]');
+                                    const lsCardSales = getCardSalesCache();
                                     const csIdx = lsCardSales.findIndex(s => s.id === csData.id);
                                     if (csIdx >= 0) lsCardSales[csIdx].offlineSaved = false;
-                                    safeSetLocalStorage('cardSales', JSON.stringify(lsCardSales));
+                                    saveCardSalesCache(lsCardSales);
                                 });
                                 break;
                             }
@@ -3580,14 +3740,14 @@
             if (!confirm('⚠️ ئایا دڵنیایت؟ ئەم کردارە دووبارەکان لە ئەرشیفی ناوخۆیی دەسڕێتەوە.')) return;
 
             // Sales: دووبارەکان بسڕەوە بەپێی invoiceNo
-            let sales = JSON.parse(localStorage.getItem('sales') || '[]');
+            let sales = getSalesCache();
             const seenSales = new Set();
             sales = sales.filter(s => {
                 const key = s.id || s.localId || (s.invoiceNo + '|' + s.createdAt);
                 if (seenSales.has(key)) return false;
                 seenSales.add(key); return true;
             });
-            safeSetLocalStorage('sales', JSON.stringify(sales));
+            saveSalesCache(sales);
             _shiftTotalCache = null;
             let returns = JSON.parse(localStorage.getItem('returns') || '[]');
             const seenReturns = new Set();
@@ -3793,12 +3953,9 @@
                 // هیچ گەران نییە: تەنیا کاڵا دیارکراوەکان (⭐) پیشان بدە
                 filtered = products.filter(p => p.quickAccess === true);
             } else {
-                // گەران هەیە: بەسەر هەموو کاڵاکانەوە بگەرێ، تەنانەت ئەو کاڵایانەی ⭐ نیە
-                filtered = products.filter(p => 
-                    p.name.toLowerCase().includes(searchTerm) || 
-                    p.barcode.includes(searchTerm) ||
-                    (Array.isArray(p.extraBarcodes) && p.extraBarcodes.some(b => b.includes(searchTerm)))
-                );
+                // گەران هەیە: بەکارهێنانی ئینگێکسی گەڕانی خێرا (fastSearchProducts) لە جیاتی
+                // گەڕانی تەواو بەسەر هەموو کاڵاکانەوە بۆ هەر پیتێک کە دەنووسرێت
+                filtered = fastSearchProducts(searchTerm);
             }
 
             if (filtered.length === 0) {
@@ -4064,7 +4221,7 @@
             try {
                 const cp = (typeof getReportCheckpoint === 'function') ? getReportCheckpoint() : null;
                 if (_shiftTotalCache === null || _shiftTotalCache.cp !== cp) {
-                    const sales = JSON.parse(localStorage.getItem('sales') || '[]');
+                    const sales = getSalesCache();
                     const startTime = cp ? new Date(cp).getTime() : 0;
                     const totalAmount = sales
                         .filter(s => s.createdAt && new Date(s.createdAt).getTime() >= startTime)
@@ -4141,7 +4298,7 @@
                 }
             }
             // Get customer info — کاشی ناوخۆیی بەکاردێت، نەک syncCustomers() (هەمان هۆکار: نەمانەوە بۆ تۆڕ)
-            const customers = JSON.parse(localStorage.getItem('customers') || '[]');
+            const customers = getCustomersCache();
             const customer = customers.find(c => c.id === customerId);
             
             const sale = {
@@ -4317,13 +4474,9 @@
             setText('invTotalProfit', totalProfitValue.toLocaleString());
             setText('invLowCount', lowOrOutCount);
 
-            // ----- گەڕان -----
-            let filtered = searchTerm 
-                ? products.filter(p => 
-                    p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                    p.barcode.includes(searchTerm) ||
-                    (Array.isArray(p.extraBarcodes) && p.extraBarcodes.some(b => b.includes(searchTerm)))
-                  )
+            // ----- گەڕان (بەکارهێنانی ئینگێکسی گەڕانی خێرا) -----
+            let filtered = searchTerm
+                ? fastSearchProducts(searchTerm)
                 : products.slice();
 
             // ----- فلتەرکردن بەپێی دۆخی کۆگا -----
@@ -4691,25 +4844,25 @@
 
         async function syncCards() {
             if (OFFLINE_MODE || !navigator.onLine) {
-                return JSON.parse(localStorage.getItem('cards') || '[]');
+                return getCardsCache();
             }
             try {
                 const snapshot = await db.collection('cards').get({ source: 'server' });
                 const cards = [];
                 snapshot.forEach(doc => cards.push({ id: doc.id, ...doc.data() }));
-                safeSetLocalStorage('cards', JSON.stringify(cards));
+                saveCardsCache(cards);
                 return cards;
             } catch (error) {
                 console.error('Error syncing cards:', error);
-                return JSON.parse(localStorage.getItem('cards') || '[]');
+                return getCardsCache();
             }
         }
 
         async function saveCard(card) {
-            const cards = JSON.parse(localStorage.getItem('cards') || '[]');
+            const cards = getCardsCache();
             const index = cards.findIndex(c => c.id === card.id);
             if (index >= 0) { cards[index] = card; } else { cards.push(card); }
-            safeSetLocalStorage('cards', JSON.stringify(cards));
+            saveCardsCache(cards);
 
             if (OFFLINE_MODE || !navigator.onLine) {
                 queueForSync('card', card);
@@ -4726,8 +4879,8 @@
         }
 
         async function deleteCardFromDB(id) {
-            const cards = JSON.parse(localStorage.getItem('cards') || '[]').filter(c => c.id !== id);
-            safeSetLocalStorage('cards', JSON.stringify(cards));
+            const cards = getCardsCache().filter(c => c.id !== id);
+            saveCardsCache(cards);
             try {
                 await db.collection('cards').doc(id.toString()).delete();
                 return true;
@@ -4740,7 +4893,7 @@
 
         async function syncCardSales() {
             if (OFFLINE_MODE || !navigator.onLine) {
-                return JSON.parse(localStorage.getItem('cardSales') || '[]');
+                return getCardSalesCache();
             }
             try {
                 const snapshot = await db.collection('cardSales')
@@ -4751,7 +4904,7 @@
                 snapshot.forEach(doc => serverSales.push({ id: doc.id, offlineSaved: false, ...doc.data() }));
 
                 const serverIds = new Set(serverSales.map(s => s.id));
-                const localSales = JSON.parse(localStorage.getItem('cardSales') || '[]');
+                const localSales = getCardSalesCache();
                 const trulyPending = localSales.filter(s => s.offlineSaved === true && !serverIds.has(s.id));
 
                 const seen = new Set();
@@ -4760,11 +4913,11 @@
                     seen.add(s.id);
                     return true;
                 });
-                safeSetLocalStorage('cardSales', JSON.stringify(merged));
+                saveCardSalesCache(merged);
                 return merged;
             } catch (error) {
                 console.error('Error syncing card sales:', error);
-                return JSON.parse(localStorage.getItem('cardSales') || '[]');
+                return getCardSalesCache();
             }
         }
 
@@ -4772,9 +4925,9 @@
             if (OFFLINE_MODE || !navigator.onLine) {
                 record.offlineSaved = true;
                 queueForSync('cardSale', record);
-                const sales = JSON.parse(localStorage.getItem('cardSales') || '[]');
+                const sales = getCardSalesCache();
                 sales.unshift(record);
-                safeSetLocalStorage('cardSales', JSON.stringify(sales));
+                saveCardSalesCache(sales);
                 return false;
             }
             try {
@@ -4782,24 +4935,24 @@
                 delete data.offlineSaved;
                 await db.collection('cardSales').doc(record.id).set(data);
                 record.offlineSaved = false;
-                const sales = JSON.parse(localStorage.getItem('cardSales') || '[]');
+                const sales = getCardSalesCache();
                 sales.unshift(record);
-                safeSetLocalStorage('cardSales', JSON.stringify(sales));
+                saveCardSalesCache(sales);
                 return true;
             } catch (error) {
                 console.error('Error saving card sale:', error);
                 record.offlineSaved = true;
                 queueForSync('cardSale', record);
-                const sales = JSON.parse(localStorage.getItem('cardSales') || '[]');
+                const sales = getCardSalesCache();
                 sales.unshift(record);
-                safeSetLocalStorage('cardSales', JSON.stringify(sales));
+                saveCardSalesCache(sales);
                 return false;
             }
         }
 
         async function deleteCardSaleFromDB(id) {
-            const sales = JSON.parse(localStorage.getItem('cardSales') || '[]').filter(s => s.id !== id);
-            safeSetLocalStorage('cardSales', JSON.stringify(sales));
+            const sales = getCardSalesCache().filter(s => s.id !== id);
+            saveCardSalesCache(sales);
             try {
                 await db.collection('cardSales').doc(id.toString()).delete();
                 return true;
@@ -5439,7 +5592,7 @@
 
         // ==================== بەشی کڕیاران ====================
         async function loadCustomers() {
-            const customers = JSON.parse(localStorage.getItem('customers') || '[]');
+            const customers = getCustomersCache();
             
             const select = document.getElementById('customerSelect');
             if (select) {
@@ -5518,7 +5671,7 @@
         }
 
         async function editCustomer(id) {
-            const customers = JSON.parse(localStorage.getItem('customers') || '[]');
+            const customers = getCustomersCache();
             const customer = customers.find(c => c.id === id);
             if (!customer) return;
 
@@ -5942,7 +6095,7 @@
         async function viewReceipt(id) {
             let sale = cachedSalesForReports.find(s => s.id === id || s.invoiceNo === id);
             if (!sale) {
-                const localSales = JSON.parse(localStorage.getItem('sales') || '[]');
+                const localSales = getSalesCache();
                 sale = localSales.find(s => s.id === id || s.invoiceNo === id);
             }
             if (!sale) {
@@ -5964,7 +6117,7 @@
         async function openReturnModal(saleId) {
             let sale = cachedSalesForReports.find(s => s.id === saleId || s.invoiceNo === saleId);
             if (!sale) {
-                const localSales = JSON.parse(localStorage.getItem('sales') || '[]');
+                const localSales = getSalesCache();
                 sale = localSales.find(s => s.id === saleId || s.invoiceNo === saleId);
             }
             if (!sale) {
@@ -6644,7 +6797,7 @@
         }
 
         async function importCardsCSV(rows) {
-            let cardSales = JSON.parse(localStorage.getItem('cardSales') || '[]');
+            let cardSales = getCardSalesCache();
             let added = 0, skipped = 0;
             for (const cols of rows) {
                 if (cols.length < 2) continue;
@@ -6666,13 +6819,13 @@
                     added++;
                 }
             }
-            safeSetLocalStorage('cardSales', JSON.stringify(cardSales));
+            saveCardSalesCache(cardSales);
             showToast(`✅ کارتەکان: ${added} زیادکرا، ${skipped} بەجێهێڵراو`);
             await loadCardReports();
         }
 
         async function importSalesCSV(rows) {
-            let sales = JSON.parse(localStorage.getItem('sales') || '[]');
+            let sales = getSalesCache();
             let added = 0, skipped = 0;
             for (const cols of rows) {
                 if (cols.length < 4) continue;
@@ -6700,7 +6853,7 @@
                     added++;
                 }
             }
-            safeSetLocalStorage('sales', JSON.stringify(sales));
+            saveSalesCache(sales);
             _shiftTotalCache = null;
             showToast(`✅ فرۆشتنەکان: ${added} زیادکرا، ${skipped} بەجێهێڵراو`);
             await loadReports();
