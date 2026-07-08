@@ -2647,7 +2647,7 @@
                 //      کۆنترین دانەکان (دوورترین لە sync‌کردن) ئەرشیف دەکرێن بۆ IndexedDB — هیچیان
                 //      لەناوناچن، کاتێک چیتە ئۆنلاین processSyncQueue بەردەوام دەیاننێرێت بۆ Firebase.
                 // لە قۆناغی توندتر، سنوور زۆر کەمتر دەکرێتەوە بۆ ئازادکردنی شوێنی زیاتر.
-                const SYNC_QUEUE_LOCAL_LIMIT = level === 1 ? 100 : (level === 2 ? 50 : 10);
+                const SYNC_QUEUE_LOCAL_LIMIT = level === 1 ? 50 : (level === 2 ? 50 : 10);
                 if (deduped.length > SYNC_QUEUE_LOCAL_LIMIT) {
                     deduped.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0)); // کۆنترین یەکەم
                     const overflowCount = deduped.length - SYNC_QUEUE_LOCAL_LIMIT;
@@ -2663,7 +2663,7 @@
             //    کۆنترینەکان ئەرشیف دەکرێن بۆ IndexedDB — هیچ فرۆشتنێک لەناوناچێت
             try {
                 const sales = getSalesCache();
-                const LIMIT = level === 1 ? 800 : (level === 2 ? 300 : 100);
+                const LIMIT = level === 1 ? 500 : (level === 2 ? 300 : 100);
                 if (sales.length > LIMIT) {
                     const pending = sales.filter(s => s.offlineSaved === true);
                     const syncedAll = sales.filter(s => s.offlineSaved !== true);
@@ -2678,7 +2678,7 @@
             // ٣. cardSales: هەمان شێوازی sales
             try {
                 const cardSales = getCardSalesCache();
-                const LIMIT = level === 1 ? 800 : (level === 2 ? 300 : 100);
+                const LIMIT = level === 1 ? 500 : (level === 2 ? 300 : 100);
                 if (cardSales.length > LIMIT) {
                     const pending = cardSales.filter(s => s.offlineSaved === true);
                     const syncedAll = cardSales.filter(s => s.offlineSaved !== true);
@@ -2950,7 +2950,7 @@
         // بەشەکاندا (نوێژینکردنەوەی ناڤیگەیشن) — چونکە لەگەڵ ١٠،٠٠٠ کاڵا، JSON.parse‌کردنەوەی
         // دووبارە لە هەر گۆڕینی بەشێکدا (کە زۆر جار ڕوودەدات) خۆی دەبووایە هۆکاری هێواشی، هەمان
         // کێشەیەک کە ئەم کاشکردنە سەرەتا بۆ چارەسەرکردنی دروستکرابوو.
-        setInterval(clearMemoryCache, 300000);
+        setInterval(clearMemoryCache, 120000);
 
         // نوێکردنەوەی خۆکاری هەر ٣٠ چرکە جارێک، بۆ ئەوەی بەکارهێنەر هەمیشە ژمارەیەکی نوێ ببینێت
         setInterval(updateQueuePendingBadge, 30000);
@@ -3515,7 +3515,9 @@
 
             updateConnectionStatus('syncing');
 
-            const CHUNK_SIZE = 450; // کەمتر لە سنووری ٥٠٠ی Firestore بۆ پارێزگاری
+            // کەمکرایەوە بۆ ١٠٠ (لە ٤٥٠) بۆ کەمکردنەوەی فشاری CPU لە هەر batch-ێکدا، بەتایبەت
+            // لەسەر کۆمپیوتەری کۆن/هێواش — batch زیاتر بەکاردێت بەڵام هەریەکەیان کاتی زۆر کورتتر دەبات.
+            const CHUNK_SIZE = 100;
             const failedItems = [];
 
             for (let i = 0; i < queue.length; i += CHUNK_SIZE) {
@@ -3609,6 +3611,12 @@
                 } catch (error) {
                     console.error('Batch sync failed:', error);
                     failedItems.push(...chunkItems);
+                }
+
+                // ڕێگە بدە بە browser کە UI-کە نوێ بکاتەوە پێش دەستپێکردنی چەنکی داهاتوو —
+                // ئەمە لادەبات فریزبوونی درێژی UI کاتێک queue زۆر گەورەیە.
+                if (i + CHUNK_SIZE < queue.length) {
+                    await new Promise(resolve => setTimeout(resolve, 0));
                 }
             }
 
@@ -3990,7 +3998,8 @@
                 return;
             }
 
-            const existingItem = cart.find(item => item.productId === productId);
+            const existingIndex = cart.findIndex(item => item.productId === productId);
+            const existingItem = existingIndex >= 0 ? cart[existingIndex] : null;
 
             if (existingItem) {
                 existingItem.quantity += qty;
@@ -4012,7 +4021,14 @@
                 showToast(`⚠️ ${product.name}: کۆگا نامێنێت، بڕی کۆگا دەچێتە ژێر سفر`, 'warning');
             }
 
-            updateCart();
+            // کاڵای هەبوو تەنیا بڕی گۆڕاوە (بێ ڕیزی نوێ) → تەنیا ئەو ڕیزە نوێبکەرەوە،
+            // کاڵای نوێ لە سەرەوەی خشتە زیاد دەکرێت (unshift) کە ئیندێکسی هەموو ڕیزەکان دەگۆڕێت،
+            // بۆیە لەوێدا هێشتا پێویستە بە دووبارە دروستکردنەوەی تەواوی خشتە.
+            if (existingItem) {
+                updateCartRowQuantity(existingIndex);
+            } else {
+                updateCart();
+            }
         }
 
         // فرۆشتنی پاکێت: بە نرخی تایبەتی پاکێت، یەک ئایتمی پاکێت زیاد دەکرێت
@@ -4029,7 +4045,8 @@
             const pkgCostPrice = (product.packageCost > 0) ? product.packageCost : (product.cost * pkgSize);
             const pkgCartKey = productId + '__pkg';
 
-            const existingItem = cart.find(item => item.productId === pkgCartKey);
+            const existingIndex = cart.findIndex(item => item.productId === pkgCartKey);
+            const existingItem = existingIndex >= 0 ? cart[existingIndex] : null;
 
             if (existingItem) {
                 existingItem.quantity += 1;
@@ -4054,7 +4071,11 @@
                 showToast(`✅ پاکێت زیادکرا: ${product.name} — ${pkgSellPrice.toLocaleString()} د.ع`);
             }
 
-            updateCart();
+            if (existingItem) {
+                updateCartRowQuantity(existingIndex);
+            } else {
+                updateCart();
+            }
         }
 
         function removeFromCart(index) {
@@ -4123,7 +4144,54 @@
             }
 
             cart[index].quantity = newQty;
-            updateCart();
+            updateCartRowQuantity(index);
+        }
+
+        // نوێکردنەوەی تەنیا کۆتای ڕیز/کۆی گشتی (subtotal, final total, tabs, shift counter, پاشەکەوتکردن)
+        // — بەبێ دووبارە دروستکردنەوەی خشتەی سەبەتە. جیا کراوەتەوە بۆ ئەوەی بتوانرێت
+        // تەنها ئەم بەشە نوێبکرێتەوە کاتێک تەنیا بڕی کاڵایەکی هەبووی گۆڕاوە (بەبێ گۆڕانی ڕیز/ڕیزبەندی).
+        function updateCartFooter() {
+            const subTotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            const discount = parseFloat(document.getElementById('discountInput')?.value) || 0;
+            const finalTotal = Math.max(0, subTotal - discount);
+
+            if (carts[activeCartIndex]) {
+                carts[activeCartIndex].discount = discount;
+                const cs = document.getElementById('customerSelect');
+                if (cs) carts[activeCartIndex].customerId = cs.value;
+                const pm = document.getElementById('paymentMethod');
+                if (pm) carts[activeCartIndex].paymentMethod = pm.value;
+            }
+
+            const subTotalEl = document.getElementById('subTotal');
+            const finalTotalEl = document.getElementById('finalTotal');
+            if (subTotalEl) subTotalEl.textContent = subTotal.toLocaleString();
+            if (finalTotalEl) finalTotalEl.textContent = finalTotal.toLocaleString();
+
+            renderCartTabs();
+            updateCartShiftCounter();
+            saveCartsState();
+        }
+
+        // نوێکردنەوەی تەنیا یەک ڕیزی سەبەتە (کاتێک بڕی کاڵایەکی هەبوو زیاد/کەم بووە، بەبێ
+        // ئەوەی ڕیزێکی نوێ زیاد بکرێت یان لابدرێت) — لە جیاتی دووبارە دروستکردنەوەی هەموو خشتەکە.
+        // ئەمە فریزبوونی UI کەمدەکاتەوە لە کاتی سکانکردنی چەندین بارکۆدی دووبارە بە خێرایی.
+        function updateCartRowQuantity(index) {
+            const tbody = document.getElementById('cartBody');
+            const item = cart[index];
+            if (!tbody || !item) return updateCart();
+
+            const row = tbody.children[index];
+            if (!row) return updateCart(); // ڕیز نەدۆزرایەوە → دووبارە دروستکردنەوەی تەواو
+
+            const qtyInput = row.querySelector('input[type="number"]');
+            if (qtyInput) qtyInput.value = item.quantity;
+
+            const total = item.price * item.quantity;
+            const cells = row.querySelectorAll('td');
+            if (cells[3]) cells[3].textContent = total.toLocaleString();
+
+            updateCartFooter();
         }
 
         function updateCart() {
@@ -4186,27 +4254,7 @@
                 }).join('');
             }
 
-            const subTotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-            const discount = parseFloat(document.getElementById('discountInput')?.value) || 0;
-            const finalTotal = Math.max(0, subTotal - discount);
-
-            // پاشەکەوتکردنی دیسکاونت لە کرینی چالاک
-            if (carts[activeCartIndex]) {
-                carts[activeCartIndex].discount = discount;
-                const cs = document.getElementById('customerSelect');
-                if (cs) carts[activeCartIndex].customerId = cs.value;
-                const pm = document.getElementById('paymentMethod');
-                if (pm) carts[activeCartIndex].paymentMethod = pm.value;
-            }
-
-            const subTotalEl = document.getElementById('subTotal');
-            const finalTotalEl = document.getElementById('finalTotal');
-            if (subTotalEl) subTotalEl.textContent = subTotal.toLocaleString();
-            if (finalTotalEl) finalTotalEl.textContent = finalTotal.toLocaleString();
-
-            renderCartTabs();
-            updateCartShiftCounter();
-            saveCartsState();
+            updateCartFooter();
         }
 
         // کاشی کۆی فرۆشتنی شیفت — پێشتر ئەم فەنکشنە لە هەر updateCart() (واتە هەر سکانێک) هەموو
