@@ -6606,11 +6606,8 @@
             const tag = (e.target.tagName || '').toLowerCase();
             const isTypingField = tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable;
 
-            // End: تەنها ئەگەر هیچ خانەیەک تایپ نەکرابوو
-            // (چونکە دوگمەی ✅ End خۆی onclick=completeSale() هەیە، ئەگەر
-            // ئێرە بەبێ مەرج completeSale() بانگ بکرێت، کلیک لەسەر دوگمەکە
-            // بەهۆی کلیلی End لە کیبۆردەوە دووجار فرۆشتن تۆمار دەکات)
-            if (e.key === 'End' && !isTypingField) {
+            // End: هەمیشە فرۆشتن تەواو دەکات
+            if (e.key === 'End') {
                 e.preventDefault();
                 completeSale();
                 return;
