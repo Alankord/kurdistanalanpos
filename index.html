@@ -4367,7 +4367,12 @@
                     const debtPaidAmount = debtPayments
                         .filter(p => p.createdAt && new Date(p.createdAt).getTime() >= startTime)
                         .reduce((sum, p) => sum + (p.amount || 0), 0);
-                    _shiftTotalCache = { cp, total: totalAmount + debtPaidAmount };
+                    // گەڕاندنەوەکان (returns) لە کۆی فرۆشتن کەم دەکرێنەوە
+                    const returns = JSON.parse(localStorage.getItem('returns') || '[]');
+                    const returnedAmount = returns
+                        .filter(r => r.createdAt && new Date(r.createdAt).getTime() >= startTime)
+                        .reduce((sum, r) => sum + (r.refundAmount || 0), 0);
+                    _shiftTotalCache = { cp, total: totalAmount + debtPaidAmount - returnedAmount };
                 }
                 el.textContent = `💰 ${_shiftTotalCache.total.toLocaleString()} د.ع ${cp ? 'لە دوایین سڤرکردنەوە' : 'کۆی گشتی'}`;
             } catch (e) {
@@ -6287,11 +6292,13 @@
             });
             const periodDebtPaymentsTotal = periodDebtPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
 
-            const periodTotal = periodSales.reduce((sum, s) => sum + (s.paymentMethod === 'credit' ? (s.paidAtSale || 0) : (s.total || 0)), 0) + periodDebtPaymentsTotal;
+            const periodTotalBeforeReturns = periodSales.reduce((sum, s) => sum + (s.paymentMethod === 'credit' ? (s.paidAtSale || 0) : (s.total || 0)), 0) + periodDebtPaymentsTotal;
             const periodCost = periodSales.reduce((sum, s) => sum + (s.totalCost != null ? s.totalCost : 0), 0);
             const grossProfit = periodSales.reduce((sum, s) => sum + (s.profit != null ? s.profit : (s.total - (s.totalCost || 0))), 0);
             const totalReturnAmount = periodReturns.reduce((sum, r) => sum + (r.refundAmount || 0), 0);
             const totalReturnProfit = periodReturns.reduce((sum, r) => sum + (r.refundProfit || 0), 0);
+            // کۆی فرۆشتن دوای گەڕاندنەوەکان (returns) کەم دەکرێتەوە
+            const periodTotal = periodTotalBeforeReturns - totalReturnAmount;
             const netProfit = grossProfit - totalReturnProfit;
 
             // ----- کۆی قەرزی هەموو کڕیاران (باڵانسی ئێستا، بێ بەستنەوە بە ماوەی ڕاپۆرت) -----
@@ -6639,6 +6646,7 @@
             };
 
             await saveReturn(returnRecord);
+            _shiftTotalCache = null; // پووچەڵکردنەوەی کاش تا کۆی فرۆشتنی شیفت گەڕاندنەوەکە حساب بکات
 
             closeReturnModal();
             await loadReports();
