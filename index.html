@@ -4219,19 +4219,33 @@
             showToast(`🔢 گۆڕدرا بۆ دانەیی: ${product.name}`);
         }
 
+        // بڕی دەکرێت سالبی بێت (بۆ گەڕاندنەوە/ڕیتۆرن) — تەنیا سفر قبووڵ ناکرێت
         async function updateQuantity(index, newQty) {
             const product = getProductIdIndex().get(String(cart[index].productId));
 
             newQty = parseFloat(newQty);
-            if (isNaN(newQty) || newQty <= 0) newQty = 0.001;
+            if (isNaN(newQty) || newQty === 0) newQty = 1;
             newQty = Math.round(newQty * 1000) / 1000; // max 3 decimal places
 
-            if (product && newQty > product.quantity) {
+            if (product && newQty > 0 && newQty > product.quantity) {
                 showToast(`⚠️ ${product.name}: کۆگا نامێنێت، بڕی کۆگا دەچێتە ژێر سفر`, 'warning');
+            }
+            if (newQty < 0) {
+                showToast(`↩️ ${cart[index].name}: وەک گەڕاندنەوە (ڕیتۆرن) حیساب دەکرێت`, 'warning');
             }
 
             cart[index].quantity = newQty;
             updateCartRowQuantity(index);
+        }
+
+        // زیادکردن/کەمکردنی بڕی کاڵا بە دوگمەی + / − لە ڕیزی سەبەتەدا
+        async function stepQuantity(index, delta) {
+            const item = cart[index];
+            if (!item) return;
+            const step = item._pkgSize ? 1 : (['کیلو','گرام','لیتر','مەتر'].includes(item.unit) ? 0.1 : 1);
+            let newQty = Math.round((item.quantity + (delta * step)) * 1000) / 1000;
+            if (newQty === 0) newQty = delta > 0 ? step : -step; // لە سفر مەپەڕێ، بازبدە بۆ سالب (گەڕاندنەوە)
+            await updateQuantity(index, newQty);
         }
 
         // نوێکردنەوەی تەنیا کۆتای ڕیز/کۆی گشتی (subtotal, final total, tabs, shift counter, پاشەکەوتکردن)
@@ -4240,7 +4254,10 @@
         function updateCartFooter() {
             const subTotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
             const discount = parseFloat(document.getElementById('discountInput')?.value) || 0;
-            const finalTotal = Math.max(0, subTotal - discount);
+            // ئەگەر سەبەتەکە بە گشتی گەڕاندنەوەیە (کۆی گشتی سالبە)، نابێت بکەوێتە سەر سفر،
+            // چونکە ئەو کاتە پێویستە بڕی گەڕاندراوە بە دروستی وەک ژمارەیەکی سالب پاشەکەوت بکرێت
+            // تاکو لە ڕاپۆرت/کۆی فرۆشتنی شیفتدا بە دروستی کەم بکرێتەوە.
+            const finalTotal = subTotal >= 0 ? Math.max(0, subTotal - discount) : (subTotal - discount);
 
             if (carts[activeCartIndex]) {
                 carts[activeCartIndex].discount = discount;
@@ -4270,6 +4287,12 @@
 
             const row = tbody.children[index];
             if (!row) return updateCart(); // ڕیز نەدۆزرایەوە → دووبارە دروستکردنەوەی تەواو
+
+            // ئەگەر دۆخی گەڕاندنەوە (سالب/ئەرێنی) گۆڕابێت، پێویستە ڕیزەکە دووبارە ڕەنگ بکرێتەوە
+            // (ڕەنگی سوور، بۆردەر، وشەی "گەڕاندنەوە")، بۆیە تەنیا لەو حاڵەتەدا خشتەی تەواو دروست دەکەینەوە.
+            const wasReturn = row.dataset.isReturn === '1';
+            const isReturnNow = item.quantity < 0;
+            if (wasReturn !== isReturnNow) return updateCart();
 
             const qtyInput = row.querySelector('input[type="number"]');
             if (qtyInput) qtyInput.value = item.quantity;
@@ -4320,19 +4343,31 @@
                         </button>`;
                     }
 
+                    const isReturn = item.quantity < 0;
+                    const rowStyle = isReturn
+                        ? 'background: var(--red-dim); border-right: 3px solid var(--red);'
+                        : (isPkg ? 'background: var(--purple-dim); border-right: 3px solid var(--purple);' : '');
+
                     return `
-                        <tr style="${isPkg ? 'background: var(--purple-dim); border-right: 3px solid var(--purple);' : ''}">
+                        <tr style="${rowStyle}" data-is-return="${isReturn ? '1' : '0'}">
                             <td>
                                 ${item.name}
-                                <small style="color:${isPkg ? '#8B5CF6' : '#F59E0B'};">(${unitLabel})</small>
+                                <small style="color:${isReturn ? 'var(--red)' : (isPkg ? '#8B5CF6' : '#F59E0B')};">(${unitLabel})${isReturn ? ' ↩️ گەڕاندنەوە' : ''}</small>
                                 ${switchBtn}
                             </td>
                             <td>${item.price.toLocaleString()}</td>
                             <td>
-                                <input type="number" value="${item.quantity}" min="0.001" step="${isWeight ? '0.001' : '1'}"
-                                       onchange="updateQuantity(${index}, this.value)">
+                                <div style="display:flex; align-items:center; gap:4px;">
+                                    <button type="button" onclick="stepQuantity(${index}, -1)"
+                                        style="width:26px;height:26px;flex-shrink:0;border:none;border-radius:6px;background:var(--red-dim);color:var(--red);font-weight:700;cursor:pointer;font-size:15px;line-height:1;">−</button>
+                                    <input type="number" value="${item.quantity}" step="${isWeight ? '0.001' : '1'}"
+                                           style="width:60px;text-align:center;${isReturn ? 'color:var(--red);font-weight:700;' : ''}"
+                                           onchange="updateQuantity(${index}, this.value)">
+                                    <button type="button" onclick="stepQuantity(${index}, 1)"
+                                        style="width:26px;height:26px;flex-shrink:0;border:none;border-radius:6px;background:var(--green-dim);color:var(--green);font-weight:700;cursor:pointer;font-size:15px;line-height:1;">+</button>
+                                </div>
                             </td>
-                            <td>${total.toLocaleString()}</td>
+                            <td style="${isReturn ? 'color:var(--red);font-weight:700;' : ''}">${total.toLocaleString()}</td>
                             <td>
                                 <button class="btn-remove" onclick="removeFromCart(${index})">✕</button>
                             </td>
@@ -4446,7 +4481,10 @@
             const goodsCost = goodsItems.reduce((sum, item) => sum + ((item.cost || 0) * item.quantity), 0);
             const discount = parseFloat(document.getElementById('discountInput')?.value) || 0;
             // ئەوەی کڕیار ڕاستەوخۆ دەیدات - کاڵا و کارت پێکەوە (بۆ پسوولە/کاتی پارەدان)
-            const finalTotal = Math.max(0, subTotal - discount);
+            // ئەگەر سەبەتەکە بە گشتی گەڕاندنەوەیە (کۆی گشتی سالبە)، نابێت بکەوێتە سەر سفر،
+            // چونکە پێویستە بڕی گەڕاندراوە بە دروستی وەک ژمارەیەکی سالب تۆمار بکرێت تاکو
+            // لە ڕاپۆرت و کۆی فرۆشتنی شیفتدا (کە لەسەر sale.total حیساب دەکرێن) بە دروستی کەم بکرێتەوە.
+            const finalTotal = subTotal >= 0 ? Math.max(0, subTotal - discount) : (subTotal - discount);
             // سوود و تێچوون تەنیا بۆ کاڵا حیساب دەکرێت؛ سوودی کارت بە جیایی لە تابی "کارت" ڕاپۆرت دەکرێت
             const profit = (goodsSubTotal - discount) - goodsCost;
             const customerId = document.getElementById('customerSelect')?.value || '';
