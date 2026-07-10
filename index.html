@@ -4014,8 +4014,26 @@
 
         function generateInvoiceNo() {
             const now = new Date();
-            const id = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-            return `INV-${now.getFullYear()}${(now.getMonth()+1).toString().padStart(2,'0')}${now.getDate().toString().padStart(2,'0')}-${id}`;
+            const datePart = `${now.getFullYear()}${(now.getMonth()+1).toString().padStart(2,'0')}${now.getDate().toString().padStart(2,'0')}`;
+            // پشکنین دەکەین کە ژمارەکە پێشتر بەکارنەهاتبێت (لە کاشی فرۆشتنەکان و لە syncQueue-یشدا)،
+            // چونکە پێشتر ژمارەیەکی هەڕەمەکی ساکار (٤ ژمارە = ١٠٠٠٠ حاڵەت) دەکرا دووبارە بێتەوە
+            // (Birthday Paradox) و ئەوە دەبووە هۆی سڕینەوەی پسوولەیەکی کۆن بەبێ ئاگاداری کاشێر.
+            const existingSales = getSalesCache();
+            const existingQueue = JSON.parse(localStorage.getItem('syncQueue') || '[]');
+            const usedInvoiceNos = new Set([
+                ...existingSales.map(s => s.invoiceNo),
+                ...existingQueue.filter(q => q.type === 'sale').map(q => q.data && q.data.invoiceNo)
+            ]);
+            let invoiceNo;
+            let attempts = 0;
+            do {
+                // بەکارهێنانی ٦ ژمارە (١٠٠٠٠٠٠ حاڵەت) لەگەڵ پشکنینی دووبارەبوونەوە — یەکجار لە
+                // بەکارهێنانی تەنیا ٤ ژمارە پارێزراوترە
+                const id = Math.floor(Math.random() * 1000000).toString().padStart(6, '0');
+                invoiceNo = `INV-${datePart}-${id}`;
+                attempts++;
+            } while (usedInvoiceNos.has(invoiceNo) && attempts < 50);
+            return invoiceNo;
         }
 
         async function displayProducts(filter = '') {
