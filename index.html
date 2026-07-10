@@ -1471,11 +1471,16 @@
 
                         <div class="form-group">
                             <label>شێوازی پارەدان:</label>
-                            <select id="paymentMethod" class="form-control">
+                            <select id="paymentMethod" class="form-control" onchange="toggleCreditCashInput()">
                                 <option value="cash">💵 پارەی نەقد</option>
                                 <option value="card">💳 کارتی بانکی</option>
                                 <option value="credit">📝 قەرز</option>
                             </select>
+                        </div>
+
+                        <div class="form-group" id="creditCashReceivedGroup" style="display:none;">
+                            <label>بڕی کاش وەرگیراو ئێستا (ئەگەر هەبێت):</label>
+                            <input type="number" id="creditCashReceived" class="form-control" min="0" value="0" placeholder="0">
                         </div>
 
                         <!-- دوگمەکان -->
@@ -3455,7 +3460,10 @@
             saveSalesCache(salesInit);
             // نوێکردنەوەی خێرای کاشی کۆی شیفت (بەبێ پارسکردنەوەی هەموو لیستەکە) — بڕوانە updateCartShiftCounter
             if (typeof _shiftTotalCache !== 'undefined' && _shiftTotalCache !== null) {
-                if (dupIdxInit < 0) { if (sale.paymentMethod !== 'credit') _shiftTotalCache.total += (sale.total || 0); }
+                if (dupIdxInit < 0) {
+                    const revenueNow = sale.paymentMethod === 'credit' ? (sale.paidAtSale || 0) : (sale.total || 0);
+                    _shiftTotalCache.total += revenueNow;
+                }
                 else _shiftTotalCache = null; // نووسینەوەیە بۆ فرۆشتنی هەبوو، سادەتر وایە کاش پووچەڵ بکرێتەوە
             }
 
@@ -4332,10 +4340,11 @@
                 if (_shiftTotalCache === null || _shiftTotalCache.cp !== cp) {
                     const sales = getSalesCache();
                     const startTime = cp ? new Date(cp).getTime() : 0;
-                    // فرۆشتنی قەرزی نەدراوە ئەژمار ناکرێت وەک پارە هەتا کڕیار نەیداتەوە
+                    // فرۆشتنی قەرزی نەدراوە ئەژمار ناکرێت وەک پارە هەتا کڕیار نەیداتەوە؛ بەڵام
+                    // ئەگەر بەشێکی کاش وەرگیرابوو لە کاتی فرۆشتندا (تێکەڵ کاش+قەر)، ئەو بەشە ئەژمار دەکرێت
                     const totalAmount = sales
-                        .filter(s => s.createdAt && new Date(s.createdAt).getTime() >= startTime && s.paymentMethod !== 'credit')
-                        .reduce((sum, s) => sum + (s.total || 0), 0);
+                        .filter(s => s.createdAt && new Date(s.createdAt).getTime() >= startTime)
+                        .reduce((sum, s) => sum + (s.paymentMethod === 'credit' ? (s.paidAtSale || 0) : (s.total || 0)), 0);
                     const debtPayments = getDebtPaymentsCache();
                     const debtPaidAmount = debtPayments
                         .filter(p => p.createdAt && new Date(p.createdAt).getTime() >= startTime)
@@ -4353,11 +4362,27 @@
             cart = [];
             const discountInput = document.getElementById('discountInput');
             if (discountInput) discountInput.value = '0';
+            const creditCashInput = document.getElementById('creditCashReceived');
+            if (creditCashInput) creditCashInput.value = 0;
+            toggleCreditCashInput();
             updateCart();
         }
 
         let _saleProcessing = false;
         let _lastCompletedInvoice = '';
+
+        function toggleCreditCashInput() {
+            const pm = document.getElementById('paymentMethod')?.value;
+            const group = document.getElementById('creditCashReceivedGroup');
+            if (!group) return;
+            if (pm === 'credit') {
+                group.style.display = 'block';
+            } else {
+                group.style.display = 'none';
+                const input = document.getElementById('creditCashReceived');
+                if (input) input.value = 0;
+            }
+        }
 
         async function completeSale() {
             if (_saleProcessing) return;
@@ -4403,6 +4428,12 @@
             const profit = (goodsSubTotal - discount) - goodsCost;
             const customerId = document.getElementById('customerSelect')?.value || '';
             const paymentMethod = document.getElementById('paymentMethod')?.value || 'cash';
+            // بۆ فرۆشتنی قەرز: بڕی کاشی وەرگیراو ئێستا (تێکەڵ کاش+قەر)، پاشماوەکە دەبێتە قەرز
+            let creditCashReceivedNow = 0;
+            if (paymentMethod === 'credit') {
+                creditCashReceivedNow = parseFloat(document.getElementById('creditCashReceived')?.value) || 0;
+                creditCashReceivedNow = Math.max(0, Math.min(creditCashReceivedNow, finalTotal));
+            }
             const cashierUser = getCurrentUser();
             const cashierName = (cashierUser && cashierUser.name) ? cashierUser.name : 'نەزانراو';
             // invoiceNo already captured above
@@ -4437,6 +4468,8 @@
                 profit: profit,
                 cardRevenue: cardRevenue,
                 paymentMethod: paymentMethod,
+                // بۆ فرۆشتنی قەرز: چەند لەو کاتەدا بە کاش وەرگیراوە (پاشماوەکە دەبێتە قەرز)
+                paidAtSale: paymentMethod === 'credit' ? creditCashReceivedNow : finalTotal,
                 cashierName: cashierName,
                 createdAt: new Date().toISOString()
             };
@@ -4486,7 +4519,8 @@
             if (paymentMethod === 'credit' && customerId) {
                 const cust = customers.find(c => c.id === customerId);
                 if (cust) {
-                    cust.balance += finalTotal;
+                    // تەنیا بەشی نەدراو دەبێتە قەرز؛ ئەگەر کاشێک لەو کاتەدا وەرگیراوە کەم دەکرێتەوە
+                    cust.balance += (finalTotal - (sale.paidAtSale || 0));
                     await saveCustomer(cust);
                 }
             }
@@ -4497,6 +4531,9 @@
             const discountInput = document.getElementById('discountInput');
             if (discountInput) discountInput.value = '0';
             if (carts[activeCartIndex]) carts[activeCartIndex].discount = 0;
+            const creditCashInput = document.getElementById('creditCashReceived');
+            if (creditCashInput) creditCashInput.value = 0;
+            toggleCreditCashInput();
             updateCart();
             displayProducts();
             loadCustomers();
@@ -6232,7 +6269,7 @@
             });
             const periodDebtPaymentsTotal = periodDebtPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
 
-            const periodTotal = periodSales.reduce((sum, s) => sum + (s.paymentMethod === 'credit' ? 0 : (s.total || 0)), 0) + periodDebtPaymentsTotal;
+            const periodTotal = periodSales.reduce((sum, s) => sum + (s.paymentMethod === 'credit' ? (s.paidAtSale || 0) : (s.total || 0)), 0) + periodDebtPaymentsTotal;
             const periodCost = periodSales.reduce((sum, s) => sum + (s.totalCost != null ? s.totalCost : 0), 0);
             const grossProfit = periodSales.reduce((sum, s) => sum + (s.profit != null ? s.profit : (s.total - (s.totalCost || 0))), 0);
             const totalReturnAmount = periodReturns.reduce((sum, r) => sum + (r.refundAmount || 0), 0);
@@ -6286,11 +6323,15 @@
             }
 
             // ----- فرۆشتن بەپێی شێوازی پارەدان -----
-            // فرۆشتنی قەرزی نەدراوە لێرە ئەژمار ناکرێت وەک پارەی وەرگیراو؛ لە بری ئەوە،
+            // بەشی نەدراوی فرۆشتنی قەرز لێرە ئەژمار ناکرێت وەک پارەی وەرگیراو؛ بەڵام ئەگەر بەشێکی
+            // کاش وەرگیرابوو لە کاتی فرۆشتندا (تێکەڵ کاش+قەر)، ئەو بەشە وەک "پارەی نەقد" ئەژمار دەکرێت.
             // پارەدانەوەکانی قەرز کە لەم ماوەیەدا وەرگیراون بە جیایی نیشان دەدرێن.
             const paymentTotals = {};
             periodSales.forEach(s => {
-                if (s.paymentMethod === 'credit') return; // هێشتا پارە نەدراوە، ئەژمار ناکرێت
+                if (s.paymentMethod === 'credit') {
+                    if (s.paidAtSale > 0) paymentTotals['cash'] = (paymentTotals['cash'] || 0) + s.paidAtSale;
+                    return;
+                }
                 const key = s.paymentMethod || 'cash';
                 paymentTotals[key] = (paymentTotals[key] || 0) + (s.total || 0);
             });
