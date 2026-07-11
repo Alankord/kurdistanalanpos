@@ -6756,8 +6756,17 @@
                 const now = Date.now();
                 if (e.key === 'Enter') {
                     if (scanBuffer.length >= 3) {
-                        playFocusWarningSound();
-                        showToast('⚠️ سکان کرا بەڵام هیچ خانایەک دیاری نەکراوە! تکایە سەرەتا کلیک لەسەر خانای بارکۆد بکە', 'error');
+                        // ڕێگری لە کرداری بنەڕەتی وەک کلیک لەسەر دوگمەیەک کە فۆکەسی لەسەرە
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const scanned = scanBuffer;
+                        scanBuffer = '';
+                        const barcodeInput = document.getElementById('barcodeInput');
+                        if (barcodeInput) {
+                            barcodeInput.value = scanned;
+                            barcodeInput.focus();
+                        }
+                        handleScannedBarcode(scanned);
                     }
                     scanBuffer = '';
                     return;
