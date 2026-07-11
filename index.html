@@ -6784,11 +6784,25 @@
                     return;
                 }
                 // ئەم چالاکییە تەنیا لە بەشی فرۆشتن (POS) کاردەکات — لە هەموو بەشەکانی دیکەدا
-                // (کاڵاکان، کۆگا، کریاران، ڕاپۆرت...) دگمەکان ئاسایی خۆیان کاردەکەن و نایانگۆڕین.
+                // (کاڵاکان، کۆگا، کریاران، ڕاپۆرت...) دگمەکان ئاسایی خۆیان کاردەکەن،
+                // بەڵام ئەگەر سکانێک لەوێ ڕوویدا، هێشتا ئاگاداری دەنگی/نیشانە دەدرێت.
                 const posSection = document.getElementById('posSection');
                 const isPosActive = posSection && posSection.classList.contains('active');
                 if (!isPosActive) {
-                    scanBuffer = '';
+                    const now2 = Date.now();
+                    if (e.key === 'Enter') {
+                        if (scanBuffer.length >= 3) {
+                            playFocusWarningSound();
+                            showToast('⚠️ سکان کرا بەڵام لە بەشی فرۆشتن نیت! تکایە سەرەتا بچۆ بۆ بەشی فرۆشتن', 'error');
+                        }
+                        scanBuffer = '';
+                        return;
+                    }
+                    if (e.key.length === 1) {
+                        if (now2 - lastKeyTime > 150) scanBuffer = '';
+                        scanBuffer += e.key;
+                        lastKeyTime = now2;
+                    }
                     return;
                 }
                 const now = Date.now();
