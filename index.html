@@ -6783,6 +6783,14 @@
                     scanBuffer = '';
                     return;
                 }
+                // ئەم چالاکییە تەنیا لە بەشی فرۆشتن (POS) کاردەکات — لە هەموو بەشەکانی دیکەدا
+                // (کاڵاکان، کۆگا، کریاران، ڕاپۆرت...) دگمەکان ئاسایی خۆیان کاردەکەن و نایانگۆڕین.
+                const posSection = document.getElementById('posSection');
+                const isPosActive = posSection && posSection.classList.contains('active');
+                if (!isPosActive) {
+                    scanBuffer = '';
+                    return;
+                }
                 const now = Date.now();
                 if (e.key === 'Enter') {
                     if (scanBuffer.length >= 3) {
