@@ -293,6 +293,15 @@
             box-shadow: 0 0 0 3px var(--red-dim) !important;
         }
 
+        /* ===== دانا کاڵا لە سەبەتەدا کاتێک بە سکان زیاد دەبێت ===== */
+        .qty-flash-green {
+            background: var(--green-dim) !important;
+            border-color: var(--green) !important;
+            color: var(--green) !important;
+            font-weight: 700 !important;
+            transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+        }
+
         /* ===== PRODUCT GRID ===== */
         .product-grid {
             display: grid;
@@ -4090,6 +4099,9 @@
 
             if (existingItem) {
                 existingItem.quantity += qty;
+                // کاڵایێ کو دووبارە سکان دبیت، دبیتە سەرێ لیستێ — وەکی کاڵایەکێ نوی
+                cart.splice(existingIndex, 1);
+                cart.unshift(existingItem);
             } else {
                 cart.unshift({
                     productId: product.id,
@@ -4108,14 +4120,10 @@
                 showToast(`⚠️ ${product.name}: کۆگا نامێنێت، بڕی کۆگا دەچێتە ژێر سفر`, 'warning');
             }
 
-            // کاڵای هەبوو تەنیا بڕی گۆڕاوە (بێ ڕیزی نوێ) → تەنیا ئەو ڕیزە نوێبکەرەوە،
-            // کاڵای نوێ لە سەرەوەی خشتە زیاد دەکرێت (unshift) کە ئیندێکسی هەموو ڕیزەکان دەگۆڕێت،
-            // بۆیە لەوێدا هێشتا پێویستە بە دووبارە دروستکردنەوەی تەواوی خشتە.
-            if (existingItem) {
-                updateCartRowQuantity(existingIndex);
-            } else {
-                updateCart();
-            }
+            // کاڵا هەمیشە دەچێتە سەرەوەی لیستە (unshift یان جێگۆڕکێ بۆ سەرەوە)،
+            // بۆیە هەمیشە پێویستە بە دووبارە دروستکردنەوەی تەواوی خشتە.
+            updateCart();
+            flashCartRow(0);
         }
 
         // فرۆشتنی پاکێت: بە نرخی تایبەتی پاکێت، یەک ئایتمی پاکێت زیاد دەکرێت
@@ -4137,6 +4145,8 @@
 
             if (existingItem) {
                 existingItem.quantity += 1;
+                cart.splice(existingIndex, 1);
+                cart.unshift(existingItem);
             } else {
                 cart.unshift({
                     productId: pkgCartKey,
@@ -4158,11 +4168,8 @@
                 showToast(`✅ پاکێت زیادکرا: ${product.name} — ${pkgSellPrice.toLocaleString()} د.ع`);
             }
 
-            if (existingItem) {
-                updateCartRowQuantity(existingIndex);
-            } else {
-                updateCart();
-            }
+            updateCart();
+            flashCartRow(0);
         }
 
         function removeFromCart(index) {
@@ -4280,6 +4287,21 @@
         // نوێکردنەوەی تەنیا یەک ڕیزی سەبەتە (کاتێک بڕی کاڵایەکی هەبوو زیاد/کەم بووە، بەبێ
         // ئەوەی ڕیزێکی نوێ زیاد بکرێت یان لابدرێت) — لە جیاتی دووبارە دروستکردنەوەی هەموو خشتەکە.
         // ئەمە فریزبوونی UI کەمدەکاتەوە لە کاتی سکانکردنی چەندین بارکۆدی دووبارە بە خێرایی.
+        // فلاشی کەسک لەسەر دانا یەک ڕیزی دیاریکراو (بەکاردێت دوای ئەوەی کاڵایەک بچێتە سەرەوەی لیستە)
+        function flashCartRow(index) {
+            const tbody = document.getElementById('cartBody');
+            if (!tbody) return;
+            const row = tbody.children[index];
+            if (!row) return;
+            const qtyInput = row.querySelector('input[type="number"]');
+            if (!qtyInput) return;
+            qtyInput.classList.remove('qty-flash-green');
+            void qtyInput.offsetWidth; // ڕیستارتکردنی ئەنیمەیشن ئەگەر پێشتر چالاک بووبێت
+            qtyInput.classList.add('qty-flash-green');
+            clearTimeout(qtyInput._flashTimer);
+            qtyInput._flashTimer = setTimeout(() => qtyInput.classList.remove('qty-flash-green'), 700);
+        }
+
         function updateCartRowQuantity(index) {
             const tbody = document.getElementById('cartBody');
             const item = cart[index];
@@ -4295,7 +4317,15 @@
             if (wasReturn !== isReturnNow) return updateCart();
 
             const qtyInput = row.querySelector('input[type="number"]');
-            if (qtyInput) qtyInput.value = item.quantity;
+            if (qtyInput) {
+                qtyInput.value = item.quantity;
+                // فلاشی کەسک بۆ دانا کاڵا — نیشانەیەکی زیندوو کە بڕی کاڵاکە زیادبووە
+                qtyInput.classList.remove('qty-flash-green');
+                void qtyInput.offsetWidth; // ڕیستارتکردنی ئەنیمەیشن ئەگەر پێشتر چالاک بووبێت
+                qtyInput.classList.add('qty-flash-green');
+                clearTimeout(qtyInput._flashTimer);
+                qtyInput._flashTimer = setTimeout(() => qtyInput.classList.remove('qty-flash-green'), 700);
+            }
 
             const total = item.price * item.quantity;
             const cells = row.querySelectorAll('td');
