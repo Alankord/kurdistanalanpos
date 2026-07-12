@@ -2252,10 +2252,10 @@
         // ئەم فەنکشنە بە بێدەنگی لە پاشەوە (بێ toast) داتای زیادە دەنێرێتە ئەرشیفی IndexedDB
         // کاتێک بەکارهێنان لە ٧٠٪ی نزیکەی سنووری تیپیکی مەرورگەر (٥MB) تێدەپەڕێت.
         const SAFE_USAGE_THRESHOLD_BYTES = 3.5 * 1024 * 1024; // ٣.٥MB — پێش گەیشتن بە سنووری ٥MB
-        function proactiveArchiveCheck() {
+        async function proactiveArchiveCheck() {
             try {
                 if (getLocalStorageUsageBytes() > SAFE_USAGE_THRESHOLD_BYTES) {
-                    trimLocalStorageForSpace(1);
+                    await trimLocalStorageForSpace(1);
                 }
             } catch (e) { /* نادیار، گرنگ نییە */ }
         }
@@ -2274,6 +2274,11 @@
                 console.warn('⚠️ localStorage پڕبوو، پاکردنەوەی داتای زیادە...');
                 // هەوڵدان بە چەند قۆناغ، هەر جارە بە توندتر (کەمترکردنی سنووری هەڵگرتن) —
                 // ئەگەر یەک جار پاککردنەوە بەس نەبێت (بۆ نموونە کاتێک ئۆفلاین زۆر درێژخایەن بووە)
+                // تێبینی: trimLocalStorageForSpace ئێستا async‌ە و پێش سڕینەوە چاوەڕوانی ئەرشیفکردنی
+                // IndexedDB دەکات (بۆ پاراستنی داتا)، بۆیە لەم قۆناغە فریاگوزارییەدا (بیرگە ب تەواهی پڕە)
+                // لەوانەیە خێرا بەسی نەکات بۆ ئەم هەوڵدانەوەیە دەستبەجێیە، و بۆیە زیاتر جار پەیامی
+                // "بیرگە پڕە" دەردەکەوێت لە جیاتی سڕینەوەی بێدەنگی داتای هەرا نەهاوکاتکراو — ئەمە
+                // بە نیازە: باشترە بەکارهێنەر ئاگادار بکرێتەوە نەک داتای فرۆشتن بەبێ ئاگاداری لەناوبچێت.
                 for (let level = 1; level <= 3; level++) {
                     trimLocalStorageForSpace(level);
                     try {
@@ -2284,10 +2289,13 @@
                 }
                 console.error('Still full after trimming at max level');
                 // نیشاندانی ئاگاداری تەنیا هەر ٣٠ چرکە جارێک، بۆ ئەوەی دووبارە نەبێتەوە
+                // تێبینی: ئەرشیفکردن بۆ IndexedDB پێویستی بە ئینتەرنێت نییە (ب تەواهی لۆکاڵە)،
+                // بۆیە پەیامەکە ئیتر داوای "چوونە ئۆنلاین" ناکات — تەنیا داوای چاوەڕوانی/دووبارە
+                // هەوڵدانەوە دەکات، چونکە ئەرشیفکردنی خۆکارانە هەر لە پاشەوەدا بەردەوامە.
                 const now = Date.now();
                 if (now - _lastQuotaFullToastAt > 30000) {
                     _lastQuotaFullToastAt = now;
-                    showToast('⚠️ بیرگەی مەرورگەر پڕە! داتای گرنگ لەناوچوونی مەترسی هەیە — تکایە بەخێرایی بچۆ ئۆنلاین بۆ هاوکاتکردن', 'error');
+                    showToast('⚠️ بیرگە پڕە، ئەرشیفکردن لە پاشەوەدا بەردەوامە — چەند چرکەیەک چاوەڕێبە و دووبارە هەوڵبدەرەوە', 'error');
                 }
                 return false;
             }
@@ -2516,9 +2524,12 @@
             });
         }
 
-        // کۆمەڵێک تۆمار دەخاتە ناو ئەرشیف (async، لە پاشەوە کاردەکات، کاریگەری لەسەر خێرایی ئەپەکە نییە)
+        // کۆمەڵێک تۆمار دەخاتە ناو ئەرشیف. ئەڤچار Promise<boolean> دگەرینیت — true دیارە
+        // نڤیسین ب سەرکەفتیانە بۆ IndexedDB تەواو بوویە. کاربەرانی ڤێ فەنکشنێ دڤێت پشتی
+        // ڤێ true-یێ چاڤەرێ بکن بەری داتایان ژ localStorage ب سرنەڤ، نەکو داتا ب تەڤایی وونببیت
+        // ئەگەر کارەب/پروگرام ل ناڤبەرا هەردو کریارا وەستیا.
         async function archiveRecords(storeName, records) {
-            if (!records || !records.length) return;
+            if (!records || !records.length) return true;
             try {
                 const dbx = await openArchiveDB();
                 await new Promise((resolve, reject) => {
@@ -2528,7 +2539,8 @@
                     tx.oncomplete = resolve;
                     tx.onerror = () => reject(tx.error);
                 });
-            } catch (e) { console.error('Archive to IndexedDB failed:', e); }
+                return true;
+            } catch (e) { console.error('Archive to IndexedDB failed:', e); return false; }
         }
 
         // هەموو تۆمارە ئەرشیفکراوەکان دەگەڕێنێتەوە (بۆ کاتی بینینی مێژووی تەواو)
@@ -2551,7 +2563,7 @@
         // هیچ فرۆشتن/گۆڕانکارییەک لەناوناچێت، تەنیا لە بیرگەی خێرا لادەبرێت. دانەکانی syncQueue هیچ
         // ID-یەکی نەگۆڕی نییە، بۆیە کلیلی otomatik (autoIncrement) بەکاردێت.
         async function archiveSyncQueueItems(items) {
-            if (!items || !items.length) return;
+            if (!items || !items.length) return true;
             try {
                 const dbx = await openArchiveDB();
                 await new Promise((resolve, reject) => {
@@ -2561,7 +2573,8 @@
                     tx.oncomplete = resolve;
                     tx.onerror = () => reject(tx.error);
                 });
-            } catch (e) { console.error('Archive syncQueue overflow failed:', e); }
+                return true;
+            } catch (e) { console.error('Archive syncQueue overflow failed:', e); return false; }
         }
 
         // هەموو دانە ئەرشیفکراوەکانی syncQueue دەگەڕێنێتەوە لەگەڵ کلیلەکانیان (پێویستە بۆ سڕینەوەی
@@ -2663,7 +2676,16 @@
 
         // پاککردنەوەی داتای زیادە/دووبارە لە localStorage بۆ ئازادکردنی شوێن، بەبێ لەدەستدانی هیچ فرۆشتنێکی نەهاوکاتکراو
         // level: 1 = ئاسایی، 2 = توندتر، 3 = زۆر توند (کۆتا هەوڵ پێش نیشاندانی ئاگاداری "بیرگە پڕە")
-        function trimLocalStorageForSpace(level) {
+        //
+        // گرنگ (چارەسەری لەناوچوونی داتا بەهۆی کارەبچوونەوە): پێشتر archiveRecords/archiveSyncQueueItems
+        // بە شێوەی "fire-and-forget" بانگ دەکران و دیسان دەستبەجێ (بەبێ چاوەڕوانی) localStorage
+        // نوێ دەکرایەوە بە کۆپییەکی بەبێ ئەو تۆمارانەی ئەرشیف کران. ئەگەر کارەب لەنێوان دوو
+        // کردارەکەدا بچووایە (دوای سڕینەوە لە localStorage، بەڵام پێش تەواوبوونی نووسین بۆ IndexedDB)،
+        // ئەو تۆمارانە بۆ هەمیشە لەناودەچوون — نە لە localStorage و نە لە IndexedDB. ئێستا ئەم
+        // فەنکشنە async‌ە و پێش سڕینەوەی هەر بەشێک لە localStorage، چاوەڕوانی دەکات تا دڵنیابێت
+        // ئەرشیفکردنەکە بە تەواوی سەرکەوتوو بووە؛ ئەگەر سەرنەکەوت، ئەو بەشە بە بێ گۆڕانکاری
+        // لە localStorage دەمێنێتەوە (دەرفەتی دووبارە هەوڵدانەوە لە جارێکی تر).
+        async function trimLocalStorageForSpace(level) {
             level = level || 1;
             // ١. syncQueue: زۆرترین هۆکاری پڕبوونە — دووبارەکان (هەمان type+id) لادەبات، تەنیا دوایینەکە هەڵدەگرێت
             try {
@@ -2686,8 +2708,11 @@
                     deduped.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0)); // کۆنترین یەکەم
                     const overflowCount = deduped.length - SYNC_QUEUE_LOCAL_LIMIT;
                     const toArchive = deduped.slice(0, overflowCount);
-                    deduped = deduped.slice(overflowCount);
-                    archiveSyncQueueItems(toArchive); // async، لە پاشەوە کاردەکات
+                    const rest = deduped.slice(overflowCount);
+                    const archived = await archiveSyncQueueItems(toArchive); // چاوەڕوانی دەکرێت — تەواوبوونی دڵنیا
+                    if (archived) {
+                        deduped = rest;
+                    } // ئەگەر سەرنەکەوت، deduped وەک خۆی (لەگەڵ toArchive) دەمێنێتەوە — هیچ نەلەناوچووت
                 }
 
                 localStorage.setItem('syncQueue', JSON.stringify(deduped));
@@ -2704,8 +2729,10 @@
                     const keepCount = Math.max(0, LIMIT - pending.length);
                     const keepSynced = syncedAll.slice(0, keepCount);
                     const toArchive = syncedAll.slice(keepCount);
-                    archiveRecords('sales', toArchive); // async، لە پاشەوە
-                    saveSalesCache([...pending, ...keepSynced]);
+                    const archived = await archiveRecords('sales', toArchive); // چاوەڕوانی دەکرێت
+                    if (archived) {
+                        saveSalesCache([...pending, ...keepSynced]);
+                    } // ئەگەر سەرنەکەوت، sales وەک خۆی دەمێنێتەوە — هیچ فرۆشتنێک ناسڕدرێتەوە
                 }
             } catch (e) { console.error('trim sales failed', e); }
 
@@ -2719,18 +2746,20 @@
                     const keepCount = Math.max(0, LIMIT - pending.length);
                     const keepSynced = syncedAll.slice(0, keepCount);
                     const toArchive = syncedAll.slice(keepCount);
-                    archiveRecords('cardSales', toArchive); // async، لە پاشەوە
-                    saveCardSalesCache([...pending, ...keepSynced]);
+                    const archived = await archiveRecords('cardSales', toArchive); // چاوەڕوانی دەکرێت
+                    if (archived) {
+                        saveCardSalesCache([...pending, ...keepSynced]);
+                    } // ئەگەر سەرنەکەوت، cardSales وەک خۆی دەمێنێتەوە
                 }
             } catch (e) { console.error('trim cardSales failed', e); }
         }
 
         // پاکردنەوەی بیرگە بەدەستی — ئەگەر هەر کاتێک هەڵەی "کێشەیەک ڕوویدا" دووبارە دەرکەوت،
         // ئەم دوگمەیە فشار بدە بۆ ئەوەی خۆکارانە شوێن ئازاد بکات بەبێ پێویستی چوونە ئۆنلاین
-        function manualCleanupStorage() {
+        async function manualCleanupStorage() {
             try {
                 const before = JSON.stringify(localStorage).length;
-                trimLocalStorageForSpace();
+                await trimLocalStorageForSpace();
                 const after = JSON.stringify(localStorage).length;
                 const freedKB = Math.max(0, Math.round((before - after) / 1024));
                 showToast(`🧹 بیرگە پاککرایەوە${freedKB > 0 ? ' — نزیکەی ' + freedKB + ' KB ئازادکرا' : ''}`, 'success');
@@ -2988,7 +3017,7 @@
 
         // نوێکردنەوەی خۆکاری هەر ٣٠ چرکە جارێک، بۆ ئەوەی بەکارهێنەر هەمیشە ژمارەیەکی نوێ ببینێت
         setInterval(updateQueuePendingBadge, 30000);
-        setInterval(proactiveArchiveCheck, 120000); // هەر ٢ خولەک، پێش گەیشتن بە سنوور پشکنین دەکات
+        setInterval(proactiveArchiveCheck, 180000); // هەر ٣ خولەک، پێش گەیشتن بە سنوور پشکنین دەکات (٣ خولەک بۆ کۆمپیوتەری لاواز باشترە)
         // یەکەم جار لە کاتی بارکردنی لاپەڕە
         setTimeout(updateQueuePendingBadge, 1500);
 
