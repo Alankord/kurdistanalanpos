@@ -2260,6 +2260,28 @@
             } catch (e) { /* نادیار، گرنگ نییە */ }
         }
 
+        // ==================== پشکنینی بیرگە لە کاتی کردنەوەی بەرنامە ====================
+        // بۆچی: بەکارهێنەر پێویست نییە خۆی یادی بێت پاکردنەوەی بیرگە بکات — ئەم فەنکشنە
+        // هەر جارە بەرنامەکە دەکرێتەوە خۆکارانە بیرگە دەپشکنێت. ئەگەر نزیک بووەوە بە پڕبوون،
+        // بە بێدەنگی پاکی دەکاتەوە. ئەگەر هێشتا بەرزە دوای پاکردنەوە، ئاگاداری ساکارێک نیشان
+        // دەدات بۆ ئەوەی بەکارهێنەر بزانێت پاکردنەوەی بەدەستی بکات پێش ئەوەی بگاتە کێشەی
+        // "Page Unresponsive".
+        const STARTUP_WARN_THRESHOLD_BYTES = 3 * 1024 * 1024; // ٣MB — ئاگاداری پێشوەخت
+        async function checkStorageHealthOnStartup() {
+            try {
+                const usageBytes = getLocalStorageUsageBytes();
+                const usageMB = (usageBytes / (1024 * 1024)).toFixed(1);
+                if (usageBytes > SAFE_USAGE_THRESHOLD_BYTES) {
+                    // زۆرە — خۆکارانە پاکی بکەوە و بە بەکارهێنەر ڕابگەیەنە
+                    await trimLocalStorageForSpace(1);
+                    const afterMB = (getLocalStorageUsageBytes() / (1024 * 1024)).toFixed(1);
+                    showToast(`🧹 بیرگە خۆکارانە پاکرایەوە لە دەستپێکردندا (${usageMB}MB → ${afterMB}MB)`, 'success');
+                } else if (usageBytes > STARTUP_WARN_THRESHOLD_BYTES) {
+                    showToast(`⚠️ بیرگە نزیکە پڕبێت (${usageMB}MB لە نزیکەی ٥MB) — تکایە "پاکردنەوەی بیرگە بەدەستی" بکە لە بەشی ڕاپۆرتەکان`, 'error');
+                }
+            } catch (e) { console.error('Startup storage check failed:', e); }
+        }
+
         function safeSetLocalStorage(key, value) {
             try {
                 localStorage.setItem(key, value);
@@ -7147,6 +7169,8 @@
                 if (recoveredCart) {
                     showToast('🔄 کرینێکی ناتەواو لە پێش ئەم داخستنە گەڕایەوە', 'success');
                 }
+                // پشکنینی بیرگە کەمێک دوای دەستپێکردن، بۆ ئەوەی کێشەی گیرکردن پێشوەخت بگیرێت
+                setTimeout(() => { checkStorageHealthOnStartup(); }, 2000);
                 console.log('POS system started successfully');
             } catch (error) {
                 console.error('Initialization error:', error);
@@ -7168,6 +7192,7 @@
                 if (recoveredCart) {
                     showToast('🔄 کرینێکی ناتەواو لە پێش ئەم داخستنە گەڕایەوە', 'success');
                 }
+                setTimeout(() => { checkStorageHealthOnStartup(); }, 2000);
             }
         }
 
