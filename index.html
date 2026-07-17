@@ -4,8 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>کاشێری زیرەک - SMART POS</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- سیستەمە بە تەواوی ئۆفلاینە: هیچ فۆنت یان سەرچاوەیەکی ئۆنلاین باوەشناکرێت -->
 
     <style>
         :root {
@@ -1329,39 +1328,12 @@
         <div class="header">
             <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
                 <h1>🏪 کاشێری زیرەک - SMART POS</h1>
-                <button class="sync-btn" onclick="manualSync()" title="هاوکاتکردنی دەستی">🔄 هاوکاتکردن</button>
             </div>
             <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                <div class="connection-status">
-                    <span class="status-dot" id="statusDot"></span>
-                    <span id="statusText">پەیوەندیکردن...</span>
+                <div class="connection-status" title="ئەم بەرنامەیە هەمیشە وڵاینە، هیچ داتایەک ناچێتە دەرەوە">
+                    <span class="status-dot offline" id="statusDot"></span>
+                    <span id="statusText">وڵاین</span>
                 </div>
-                <div id="queuePendingBadge" onclick="showQueuePendingDetails()" title="ژمارەی تۆمارە چاوەڕوانەکانی ناردن بۆ Firebase (کلیک بکە بۆ وردەکاری)" style="
-                    display: none;
-                    align-items: center;
-                    gap: 5px;
-                    padding: 5px 10px;
-                    border-radius: 20px;
-                    border: 1px solid var(--border);
-                    background: var(--surface3);
-                    color: var(--text2);
-                    font-size: 12px;
-                    font-weight: 700;
-                    cursor: pointer;
-                    white-space: nowrap;
-                ">📦 <span id="queuePendingCount">0</span> چاوەڕوان</div>
-                <button id="offlineModeBtn" onclick="toggleOfflineMode()" title="چالاک/غەیرچالاککردنی حالتی ئۆفلاین" style="
-                    padding: 7px 14px;
-                    border-radius: 20px;
-                    border: 1px solid var(--amber);
-                    background: var(--amber-glow);
-                    color: var(--amber);
-                    font-size: 13px;
-                    font-weight: 700;
-                    cursor: pointer;
-                    font-family: var(--font-body);
-                    transition: all 0.2s;
-                ">📵 ئۆفلاین: چالاکە</button>
                 <button id="themeToggleBtn" onclick="toggleTheme()" title="گۆڕینی ڕووکار (تاریک/ ڕووناک)" style="
                     padding: 7px 14px;
                     border-radius: 20px;
@@ -2101,9 +2073,8 @@
     <div id="printArea"></div>
 
 
-    <!-- Firebase SDKs -->
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <!-- Firebase و هەرچی هاوکاتکردنی ئۆنلاین بە تەواوی لابراوە: ئەم بەرنامەیە تەنیا وڵاینە -->
+
     <!-- کتێبخانەی سکانکردنی بارکۆد بە کامێرا -->
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 
@@ -2215,22 +2186,15 @@
 
         initLoginScreen();
 
-        // ==================== Firebase Configuration ====================
-        const firebaseConfig = {
-            apiKey: "AIzaSyDiNjv6ON9HrLZ_HMh4Eb7G8_G-E4NHPKw",
-            authDomain: "pos-system-45c43.firebaseapp.com",
-            projectId: "pos-system-45c43",
-            storageBucket: "pos-system-45c43.firebasestorage.app",
-            messagingSenderId: "759101732252",
-            appId: "1:759101732252:web:09dae16f7d35b3fde0c459"
-        };
+        // ==================== دۆخی وڵاین ====================
+        // ئەم بەرنامەیە بە تەواوی وڵاینە: هیچ Firebase و هیچ هاوکاتکردنێکی ئۆنلاین نییە.
+        // db وەک null دادەنرێت چونکە هەرگیز بەکارناهێنرێت — هەموو داتاکان تەنیا لە
+        // localStorage/IndexedDB ی ئەم ئامێرە دادەنرێن و هەرگیز ناچنە دەرەوە.
+        const db = null;
 
-        // Initialize Firebase
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
-
-        // ===== OFFLINE MODE - true = Firebase غەیرچالاک =====
-        let OFFLINE_MODE = true; // true بکە کاتێک quota تەواوبوو
+        // OFFLINE_MODE هەمیشە true‌ە و ناتوانرێت بگۆڕدرێت — بەرنامەکە هەرگیز هەوڵی
+        // چوونە ئۆنلاین یان هاوکاتکردن نادات.
+        const OFFLINE_MODE = true;
 
         // ==================== چارەسەری پڕبوونی بیرگە (localStorage quota) ====================
         // بەشێوەی سەرەکی: هەموو localStorage.setItem بۆ ئەم فەنکشنە دەردەچێت. ئەگەر بیرگە پڕبوو،
@@ -2925,58 +2889,10 @@
         }
 
 
+        // ئەم بەرنامەیە هەمیشە وڵاینە — هیچ دۆخی ئۆنلاین/هاوکاتکردن نییە.
         function toggleOfflineMode() {
-            const goingOnline = OFFLINE_MODE; // ئێستا ئۆفلاینین، دەمانەوێت بچینە ئۆنلاین
-            if (goingOnline) {
-                const pin = prompt('بۆ چوونە دۆخی ئۆنلاین و هاوکاتکردن، کۆدی نهێنی (PIN) بنووسە:');
-                if (pin === null) return; // پاشگەزبوونەوە
-                if (pin.trim() !== getSharedPin()) {
-                    alert('❌ کۆدی نهێنی هەڵەیە - چوونە ئۆنلاین هەڵوەشایەوە');
-                    return;
-                }
-            }
-            OFFLINE_MODE = !OFFLINE_MODE;
-            const btn = document.getElementById('offlineModeBtn');
-            if (OFFLINE_MODE) {
-                btn.textContent = '📵 ئۆفلاین: چالاکە';
-                btn.style.borderColor = 'var(--amber)';
-                btn.style.color = 'var(--amber)';
-                btn.style.background = 'var(--amber-glow)';
-                updateConnectionStatus('offline');
-                showToast('📵 حالتی ئۆفلاین چالاکبوو - Firebase دەستنادات', 'error');
-            } else {
-                btn.textContent = '🟢 ئۆنلاین: چالاکە';
-                btn.style.borderColor = 'var(--green)';
-                btn.style.color = 'var(--green)';
-                btn.style.background = 'var(--green-dim)';
-                updateConnectionStatus('syncing');
-                showToast('🟢 حالتی ئۆنلاین - هاوکاتکردن دەستپێدەکات...', 'success');
-                processSyncQueue().then(async () => {
-                    await syncProducts();
-                    await syncCustomers();
-                    updateConnectionStatus('online');
-                    showToast('✅ هاوکاتکردن تەواو بوو', 'success');
-                    const reportsSection = document.getElementById('reportsSection');
-                    if (reportsSection && reportsSection.classList.contains('active')) {
-                        await loadReports();
-                    }
-                }).catch((err) => {
-                    console.error('Sync error after going online:', err);
-                    updateConnectionStatus('online');
-                });
-            }
+            showToast('📵 ئەم بەرنامەیە هەمیشە وڵاینە — هیچ هاوکاتکردنێکی ئۆنلاین چالاک نییە', 'success');
         }
-
-        // Enable offline persistence
-        db.enablePersistence()
-            .then(() => {
-                console.log('Offline persistence enabled');
-                updateConnectionStatus('online');
-            })
-            .catch((err) => {
-                console.warn('Persistence error:', err);
-                updateConnectionStatus('online');
-            });
 
         // ==================== Connection Status ====================
         function updateConnectionStatus(status) {
@@ -3113,28 +3029,8 @@
         // یەکەم جار لە کاتی بارکردنی لاپەڕە
         setTimeout(updateQueuePendingBadge, 1500);
 
-        let lastOnlineSync = 0;
-        window.addEventListener('online', async () => {
-            if (OFFLINE_MODE) return; // ئەگەر ئۆفلاین مۆد چالاکە، sync مەکە
-            const now = Date.now();
-            if (now - lastOnlineSync < 300000) return; // 5 خولەک جارێک، نەک هەموو جارێک ئینتەرنێت بگەڕێتەوە
-            lastOnlineSync = now;
-            updateConnectionStatus('syncing');
-            showToast('🔄 ئینتەرنێت گەڕایەوە، sync دەستپێدەکات...', 'success');
-            await processSyncQueue();
-            await syncProducts();
-            await syncCustomers();
-            updateConnectionStatus('online');
-            showToast('✅ sync تەواو بوو', 'success');
-            const reportsSection = document.getElementById('reportsSection');
-            if (reportsSection && reportsSection.classList.contains('active')) {
-                await loadReports();
-            }
-        });
-        window.addEventListener('offline', () => {
-            updateConnectionStatus('offline');
-            showToast('📵 ئینتەرنێت بڕی - کار بەردەوامە بە شێوازی ئۆفلاین', 'error');
-        });
+        // تێبینی: ئەم بەرنامەیە هەمیشە وڵاینە، بۆیە هیچ listener‌ی 'online'/'offline'
+        // بۆ هەوڵدانی sync نییە — کارکردن هەمیشە لە localStorage/IndexedDB‌ی ئەم ئامێرەیە.
 
         // ==================== ئاگادارکردنەوەی خێرا (Toast) و دەنگ ====================
         function showToast(message, type = 'success') {
@@ -3701,6 +3597,8 @@
         // نوێکردنەوەی Sync Queue بە Batch Write — هەموو نووسینەکان بە یەک (یان چەند) ناردنی batch دەنێردرێن بۆ Firestore
         // بەلای کەمەوە ١ نووسینی Firestore بۆ هەر ٤٥٠ دانە لە queue (سنووری Firestore ٥٠٠ کرداری هەر batch-ێکە)
         async function processSyncQueue() {
+            // ئەم بەرنامەیە هەمیشە وڵاینە — هەرگیز هیچ داتایەک نانێردرێت بۆ هیچ سێرڤەرێک.
+            if (OFFLINE_MODE) return;
             const localQueue = JSON.parse(localStorage.getItem('syncQueue') || '[]');
             // دانە کۆنەکانی ئەرشیفکراویش (کە لەبەر پڕبوونی بیرگە چوونەتە IndexedDB) دەخرێنە queue-ی
             // ناردن، بۆ ئەوەی هیچ فرۆشتن/گۆڕانکارییەک لە sync لانەدرێت تەنانەت دوای ئەرشیفکردن
