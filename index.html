@@ -2772,19 +2772,24 @@
             } catch (e) { console.error('trim syncQueue failed', e); }
 
             // ٢. sales: تەنیا نوێترین دانەکان لە بیرگەی خێرا هەڵدەگرێت، بەڵام پێش سڕینەوە
-            //    کۆنترینەکان ئەرشیف دەکرێن بۆ IndexedDB — هیچ فرۆشتنێک لەناوناچێت
+            //    کۆنترینەکان ئەرشیف دەکرێن بۆ IndexedDB — هیچ فرۆشتنێک لەناوناچێت.
+            //    تێبینی گرنگ: پێشتر تەنیا تۆمارە "هاوکاتکراوەکان" (offlineSaved !== true) دەچوونە
+            //    ئەرشیف، بەڵام لەم بەرنامەیەدا (OFFLINE_MODE هەمیشە true‌ە) هیچ تۆمارێک هەرگیز
+            //    "هاوکاتکراو" نابێت — بۆیە هیچ شتێک هەرگیز ئەرشیف نەدەکرا! ئێستا بەپێی
+            //    کۆنایەتی (createdAt) ئەرشیف دەکرێت، بێگومان لە offlineSaved. viewReceipt/
+            //    openReturnModal ئێستا کاتێک تۆمار لە localStorage نەدۆزرێتەوە، لە ئەرشیفی
+            //    IndexedDB‌یش دەگەڕێن، بۆیە داتاکە بەردەست دەمێنێتەوە.
             try {
                 const sales = getSalesCache();
                 const LIMIT = level === 1 ? 500 : (level === 2 ? 300 : 100);
                 if (sales.length > LIMIT) {
-                    const pending = sales.filter(s => s.offlineSaved === true);
-                    const syncedAll = sales.filter(s => s.offlineSaved !== true);
-                    const keepCount = Math.max(0, LIMIT - pending.length);
-                    const keepSynced = syncedAll.slice(0, keepCount);
-                    const toArchive = syncedAll.slice(keepCount);
+                    const sorted = [...sales].sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+                    const overflowCount = sorted.length - LIMIT;
+                    const toArchive = sorted.slice(0, overflowCount);
+                    const keep = sorted.slice(overflowCount);
                     const archived = await archiveRecords('sales', toArchive); // چاوەڕوانی دەکرێت
                     if (archived) {
-                        saveSalesCache([...pending, ...keepSynced]);
+                        saveSalesCache(keep);
                     } // ئەگەر سەرنەکەوت، sales وەک خۆی دەمێنێتەوە — هیچ فرۆشتنێک ناسڕدرێتەوە
                 }
             } catch (e) { console.error('trim sales failed', e); }
@@ -2794,14 +2799,13 @@
                 const cardSales = getCardSalesCache();
                 const LIMIT = level === 1 ? 500 : (level === 2 ? 300 : 100);
                 if (cardSales.length > LIMIT) {
-                    const pending = cardSales.filter(s => s.offlineSaved === true);
-                    const syncedAll = cardSales.filter(s => s.offlineSaved !== true);
-                    const keepCount = Math.max(0, LIMIT - pending.length);
-                    const keepSynced = syncedAll.slice(0, keepCount);
-                    const toArchive = syncedAll.slice(keepCount);
+                    const sorted = [...cardSales].sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+                    const overflowCount = sorted.length - LIMIT;
+                    const toArchive = sorted.slice(0, overflowCount);
+                    const keep = sorted.slice(overflowCount);
                     const archived = await archiveRecords('cardSales', toArchive); // چاوەڕوانی دەکرێت
                     if (archived) {
-                        saveCardSalesCache([...pending, ...keepSynced]);
+                        saveCardSalesCache(keep);
                     } // ئەگەر سەرنەکەوت، cardSales وەک خۆی دەمێنێتەوە
                 }
             } catch (e) { console.error('trim cardSales failed', e); }
@@ -6576,6 +6580,13 @@
                 cachedSalesForReports = freshSales;
                 sale = freshSales.find(s => s.id === id || s.invoiceNo === id);
             }
+            if (!sale) {
+                // لەوانەیە ئەم پسوولەیە پێشتر ئەرشیف کرابێت بۆ IndexedDB (بەهۆی زۆربوونی داتا)
+                try {
+                    const archivedSales = await getAllArchived('sales');
+                    sale = archivedSales.find(s => s.id === id || s.invoiceNo === id);
+                } catch (e) { /* نادیار */ }
+            }
             if (sale) {
                 printReceipt(sale);
             } else {
@@ -6596,6 +6607,13 @@
                 const freshSales = await syncSales();
                 cachedSalesForReports = freshSales;
                 sale = freshSales.find(s => s.id === saleId || s.invoiceNo === saleId);
+            }
+            if (!sale) {
+                // لەوانەیە ئەم پسوولەیە پێشتر ئەرشیف کرابێت بۆ IndexedDB (بەهۆی زۆربوونی داتا)
+                try {
+                    const archivedSales = await getAllArchived('sales');
+                    sale = archivedSales.find(s => s.id === saleId || s.invoiceNo === saleId);
+                } catch (e) { /* نادیار */ }
             }
             if (!sale) {
                 showToast('پسوڵە نەدۆزرایەوە!', 'error');
