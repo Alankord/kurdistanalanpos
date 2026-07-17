@@ -2678,6 +2678,48 @@
             updateQueuePendingBadge();
         }
 
+        // ==================== سڕینەوەی هەمیشەیی ئەرشیفی فرۆشتن/کارت (IndexedDB) ====================
+        // ⚠️ گرنگ: ئەمە تەنیا تۆمارە ئەرشیفکراوەکانی 'sales' و 'cardSales' لە IndexedDB دەسڕێتەوە.
+        // کۆگا/کاڵاکان (products)، کڕیارەکان، قەرزەکان، و هەموو شتێکی تر بە تەواوی لادراون —
+        // ئەم فەنکشنە هیچ کارتان لەگەڵیان ناکات. تۆمارە زیندووەکانی 'بیرگەی خێرا'یش (localStorage)
+        // دەست ناخرێن، تەنیا ئەو تۆمارانەی پێشتر چوونەتە ئەرشیف دەسڕدرێنەوە.
+        async function clearSalesArchive() {
+            const archivedSales = await getAllArchived('sales');
+            const archivedCardSales = await getAllArchived('cardSales');
+            const total = archivedSales.length + archivedCardSales.length;
+
+            if (!total) {
+                showToast('✅ ئەرشیف ئێستاش بەتاڵە', 'success');
+                return;
+            }
+
+            const ok = confirm(
+                `⚠️ ${total.toLocaleString()} تۆماری فرۆشتنی ئەرشیفکراو (کۆن) بۆ هەمیشە دەسڕدرێتەوە.\n\n` +
+                `❌ ئەمە ناتوانرێت پاشگەز بکرێتەوە — پسوڵە/گەڕاندنەوەی ئەم تۆمارانە دیسان بەردەست نابن.\n` +
+                `✅ کۆگا/کاڵاکان، کڕیارەکان، و قەرزەکان هەرگیز ناسڕدرێنەوە — تەنیا مێژووی فرۆشتنی کۆن.\n` +
+                `✅ فرۆشتنە نوێیەکانی "بیرگەی خێرا" (ئەوانەی هێشتا لە ڕاپۆرتەکاندا دیارن) دەستیان ناخرێت.\n\n` +
+                `دڵنیایت؟`
+            );
+            if (!ok) return;
+
+            try {
+                const dbx = await openArchiveDB();
+                await new Promise((resolve, reject) => {
+                    const tx = dbx.transaction(['sales', 'cardSales'], 'readwrite');
+                    tx.objectStore('sales').clear();
+                    tx.objectStore('cardSales').clear();
+                    tx.oncomplete = resolve;
+                    tx.onerror = () => reject(tx.error);
+                });
+                showToast(`🗑️ ${total.toLocaleString()} تۆماری ئەرشیفکراو بۆ هەمیشە سڕایەوە`, 'success');
+                const viewerModal = document.getElementById('archiveViewerModal');
+                if (viewerModal && viewerModal.classList.contains('active')) openArchiveViewer();
+            } catch (e) {
+                console.error('Clear sales archive failed:', e);
+                showToast('⚠️ سڕینەوەی ئەرشیف سەرنەکەوت', 'error');
+            }
+        }
+
         // مۆداڵی سادە بۆ بینینی مێژووی تەواو (localStorage + ئەرشیفی IndexedDB پێکەوە)
         async function openArchiveViewer() {
             let modal = document.getElementById('archiveViewerModal');
@@ -2692,6 +2734,7 @@
                             <p style="text-align:center; color:var(--text3);">بارکردن...</p>
                         </div>
                         <div class="csv-modal-footer">
+                            <button class="btn btn-danger" style="width:auto;" onclick="clearSalesArchive()">🗑️ سڕینەوەی ئەرشیف</button>
                             <button class="csv-btn-cancel" onclick="document.getElementById('archiveViewerModal').classList.remove('active')">❌ داخستن</button>
                         </div>
                     </div>`;
