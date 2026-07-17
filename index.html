@@ -2946,24 +2946,10 @@
                     }
                 }
 
-                // ==== خۆکار پاککردنەوەی queue دوای ٢٤ سەعات بێ sync (بۆ بەکارهێنەرانێک sync ناوێن) ====
-                // ئەگەر queue بەردەوام پڕ بمێنێتەوە (بێ ئەوەی sync ببێتەوە یان بەدەستی پاک بکرێتەوە)
-                // بۆ زیاتر لە ٢٤ سەعات، خۆکارانە دەسڕدرێتەوە — هیچ فرۆشتن/کاڵا ناسڕدرێتەوە، تەنیا
-                // پرسیارنامەی چاوەڕوانی ناردنە. دوای سڕینەوە، ئاگاداریەک (toast) پیشان دەدرێت.
-                const AUTO_CLEAR_QUEUE_AFTER_MS = 24 * 60 * 60 * 1000; // ٢٤ سەعات
-                if (total > 0) {
-                    let backlogSince = parseInt(localStorage.getItem('queueBacklogSince') || '0', 10);
-                    if (!backlogSince) {
-                        backlogSince = Date.now();
-                        localStorage.setItem('queueBacklogSince', backlogSince.toString());
-                    } else if (Date.now() - backlogSince > AUTO_CLEAR_QUEUE_AFTER_MS) {
-                        await clearSyncQueueCore();
-                        showToast(`🗑️ ${total.toLocaleString('en-US')} تۆماری چاوەڕوان خۆکارانە پاکرایەوە (٢٤ سەعات sync نەکرا بوو). هیچ فرۆشتنێک نەسڕایەوە.`, 'success');
-                        return updateQueuePendingBadge();
-                    }
-                } else {
-                    localStorage.removeItem('queueBacklogSince');
-                }
+                // تێبینی: خۆکار پاککردنەوەی queue دوای ٢٤ سەعات لابرا — چونکە ئەم بەرنامەیە
+                // هەمیشە وڵاینە و هەرگیز sync ناکات، ئەگەر ئەم بەشە بمابایە هەموو ڕۆژێک
+                // queue بە خۆکاری دەسڕایەوە. queue ئێستا هەرگیز خۆکارانە ناسڕدرێتەوە —
+                // تەنیا بەدەستی، لە ڕێگەی دوگمەی "پاکردنەوەی queue" لە ڕێکخستنەکان.
 
                 // ==== ئاگاداری خۆکاری بۆ کەسانێک هەرگیز ئۆنلاین نابن ====
                 // ئەم بەشە هیچ کاتێک پێویستی بە ئینتەرنێت نییە. تەنیا کاتێک queue زۆر گەورە
@@ -2990,8 +2976,8 @@
                     `• لە ئەرشیفی IndexedDB: ${archivedLen.toLocaleString('en-US')} تۆمار\n` +
                     `• کۆی گشتی چاوەڕوان: ${total.toLocaleString('en-US')} تۆمار\n\n` +
                     (total === 0
-                        ? 'هەموو شتێک هاوکاتکراوە. ✅'
-                        : 'ئەم تۆمارانە کاتێک بچیتە ئۆنلاین (یان هاوکاتکردنی دەستی بکەیت) بەخۆکار دەنێردرێن بۆ Firebase.\nهیچ داتایەک لەناوناچووە — تەنیا چاوەڕوانن.')
+                        ? 'هەموو شتێک لۆکاڵە. ✅'
+                        : 'ئەم تۆمارانە تەنیا لێرە پارێزراون — هیچ کاتێک خۆکارانە نانێردرێن، چونکە ئەم بەرنامەیە هەمیشە وڵاینە.\nهیچ داتایەک لەناوناچووە — تەنیا خۆیان لێرە پارێزراون.')
                 );
             });
         }
@@ -3584,14 +3570,10 @@
         // بۆ 'product'/'card'/'customer'/'generalReceipt': ئەگەر هەمان دانە پێشتر لە queue بوو، جێگۆڕکێی دەکات
         // نەک زیادی بکات — ئەمە ڕێگری دەکات لە بەردەوام گەورەبوونی بیرگە کاتێک یەک کاڵا زۆرجار فرۆشرا/گۆڕدرا
         const DEDUP_QUEUE_TYPES = new Set(['product', 'card', 'customer', 'generalReceipt']);
+        // Queue‌ی هاوکاتکردن بە تەواوی لابراوە — چونکە ئەم بەرنامەیە بۆ هەمیشە وڵاینە،
+        // هیچ پێویستی بە پاشەکەوتکردنی داتا بۆ ناردنی داهاتوو نییە.
         function queueForSync(type, data) {
-            let queue = JSON.parse(localStorage.getItem('syncQueue') || '[]');
-            if (DEDUP_QUEUE_TYPES.has(type) && data && data.id !== undefined) {
-                queue = queue.filter(q => !(q.type === type && q.data && q.data.id === data.id));
-            }
-            queue.push({ type, data, timestamp: Date.now() });
-            safeSetLocalStorage('syncQueue', JSON.stringify(queue));
-            updateQueuePendingBadge();
+            // بەردەوام هیچ ناکات — هیچ داتایەک ئیتر لە queue کۆناکرێتەوە.
         }
 
         // نوێکردنەوەی Sync Queue بە Batch Write — هەموو نووسینەکان بە یەک (یان چەند) ناردنی batch دەنێردرێن بۆ Firestore
@@ -7106,12 +7088,16 @@
         async function init() {
             console.log('Starting POS system...');
             const recoveredCart = restoreCartsState();
-            
+
             try {
                 updateConnectionStatus('syncing');
                 await initializeData();
-                await processSyncQueue();
-                
+                // ئەم بەرنامەیە بۆ هەمیشە وڵاینە — هیچ queue‌یەکی هاوکاتکردن پێویست نییە،
+                // بۆیە هەرچی پێشتر کۆببووەتەوە (لە localStorage و IndexedDB) یەک جار پاک دەکرێتەوە.
+                localStorage.removeItem('syncQueue');
+                localStorage.removeItem('queueBacklogSince');
+                await clearAllArchivedSyncQueue();
+
                 if (!currentInvoiceNo) {
                     currentInvoiceNo = generateInvoiceNo();
                 }
