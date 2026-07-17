@@ -4815,6 +4815,19 @@
         }
 
         // ==================== بەشی کاڵاکان ====================
+        // ----- لاپەڕەبەندی خشتەی کاڵاکان (Pagination) -----
+        // بۆ خێراکردنی سەکشنی "کاڵاکان و کۆگا": لە جیاتی دروستکردنی هەزاران ڕیزی
+        // HTML بۆ هەموو کاڵاکان یەکجار (کە سەکشنەکە درێژ و هێواش دەکات)، تەنیا
+        // یەک لاپەڕە (٥٠ دانە) لە هەر کاتێکدا دروست دەکرێت.
+        let productsCurrentPage = 1;
+        const PRODUCTS_PAGE_SIZE = 50;
+        let _lastProductsSignature = null;
+
+        function goToProductsPage(page) {
+            productsCurrentPage = page;
+            loadProducts(document.getElementById('productsSearchBox')?.value || '');
+        }
+
         async function loadProducts(searchTerm = '') {
             const products = getProductsCache();
             const tbody = document.getElementById('productsTableBody');
@@ -4858,10 +4871,25 @@
             
             if (filtered.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="11" style="text-align: center; color: var(--text3);">هیچ کاڵایەک نەدۆزرایەوە</td></tr>';
+                renderProductsPagination(0);
                 return;
             }
 
-            tbody.innerHTML = filtered.map(p => {
+            // ئەگەر گەران/فلتەر/ڕیزکردن گۆڕابێت، بگەڕێوە بۆ لاپەڕەی یەکەم
+            const signature = searchTerm + '|' + filterVal + '|' + sortVal;
+            if (signature !== _lastProductsSignature) {
+                productsCurrentPage = 1;
+                _lastProductsSignature = signature;
+            }
+
+            const totalPages = Math.max(1, Math.ceil(filtered.length / PRODUCTS_PAGE_SIZE));
+            if (productsCurrentPage > totalPages) productsCurrentPage = totalPages;
+            if (productsCurrentPage < 1) productsCurrentPage = 1;
+
+            const startIdx = (productsCurrentPage - 1) * PRODUCTS_PAGE_SIZE;
+            const pageItems = filtered.slice(startIdx, startIdx + PRODUCTS_PAGE_SIZE);
+
+            tbody.innerHTML = pageItems.map(p => {
                 const profitPerUnit = (p.price || 0) - (p.cost || 0);
                 const itemValue = (p.price || 0) * (p.quantity || 0);
                 const today = new Date(); today.setHours(0,0,0,0);
@@ -4923,6 +4951,38 @@
                 </tr>
             `;
             }).join('');
+
+            renderProductsPagination(filtered.length);
+        }
+
+        function renderProductsPagination(totalCount) {
+            let el = document.getElementById('productsPagination');
+            if (!el) {
+                // دروستکردنی خانەی لاپەڕەبەندی یەکجار، ڕاستەوخۆ لەدوای خشتەکە
+                const wrap = document.querySelector('#productsSection .card');
+                if (!wrap) return;
+                el = document.createElement('div');
+                el.id = 'productsPagination';
+                el.style.cssText = 'display:flex; align-items:center; justify-content:center; gap:10px; padding:14px 0 4px; flex-wrap:wrap;';
+                wrap.appendChild(el);
+            }
+
+            if (totalCount === 0) { el.innerHTML = ''; return; }
+
+            const totalPages = Math.max(1, Math.ceil(totalCount / PRODUCTS_PAGE_SIZE));
+            const from = (productsCurrentPage - 1) * PRODUCTS_PAGE_SIZE + 1;
+            const to = Math.min(productsCurrentPage * PRODUCTS_PAGE_SIZE, totalCount);
+
+            if (totalPages <= 1) {
+                el.innerHTML = `<span style="color:var(--text3); font-size:13px;">پیشاندانی ${from}–${to} لە کۆی ${totalCount}</span>`;
+                return;
+            }
+
+            el.innerHTML = `
+                <button class="btn" style="width:auto; padding:6px 14px;" ${productsCurrentPage<=1?'disabled':''} onclick="goToProductsPage(${productsCurrentPage-1})">◀ پێشوو</button>
+                <span style="color:var(--text2); font-size:13px;">لاپەڕەی ${productsCurrentPage} لە ${totalPages} &nbsp;(${from}–${to} لە ${totalCount})</span>
+                <button class="btn" style="width:auto; padding:6px 14px;" ${productsCurrentPage>=totalPages?'disabled':''} onclick="goToProductsPage(${productsCurrentPage+1})">دواتر ▶</button>
+            `;
         }
 
         function timeAgo(isoString) {
