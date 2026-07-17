@@ -2217,9 +2217,20 @@
         // ئەم فەنکشنە بە بێدەنگی لە پاشەوە (بێ toast) داتای زیادە دەنێرێتە ئەرشیفی IndexedDB
         // کاتێک بەکارهێنان لە ٧٠٪ی نزیکەی سنووری تیپیکی مەرورگەر (٥MB) تێدەپەڕێت.
         const SAFE_USAGE_THRESHOLD_BYTES = 3.5 * 1024 * 1024; // ٣.٥MB — پێش گەیشتن بە سنووری ٥MB
+        // سنووری ژمارەی تۆمار: تەنانەت ئەگەر بایت هێشتا کەمترە لە ٣.٥MB، ئەگەر ژمارەی تۆمارەکان
+        // زۆر زیاد بوو (بۆ نموونە هەزاران فرۆشتن) ئەرشیف دەکرێت — بۆیە ئەرشیفکردن جگە لە قەبارە،
+        // بەپێی ژمارەش کاردەکات.
+        const SAFE_RECORD_COUNT_THRESHOLD = 500;
         async function proactiveArchiveCheck() {
             try {
-                if (getLocalStorageUsageBytes() > SAFE_USAGE_THRESHOLD_BYTES) {
+                let needsTrim = getLocalStorageUsageBytes() > SAFE_USAGE_THRESHOLD_BYTES;
+                if (!needsTrim) {
+                    try {
+                        if (getSalesCache().length > SAFE_RECORD_COUNT_THRESHOLD) needsTrim = true;
+                        else if (getCardSalesCache().length > SAFE_RECORD_COUNT_THRESHOLD) needsTrim = true;
+                    } catch (eCount) { /* نادیار */ }
+                }
+                if (needsTrim) {
                     await trimLocalStorageForSpace(1);
                 }
             } catch (e) { /* نادیار، گرنگ نییە */ }
@@ -2236,8 +2247,13 @@
             try {
                 const usageBytes = getLocalStorageUsageBytes();
                 const usageMB = (usageBytes / (1024 * 1024)).toFixed(1);
-                if (usageBytes > SAFE_USAGE_THRESHOLD_BYTES) {
-                    // زۆرە — خۆکارانە پاکی بکەوە و بە بەکارهێنەر ڕابگەیەنە
+                let recordsOverLimit = false;
+                try {
+                    recordsOverLimit = getSalesCache().length > SAFE_RECORD_COUNT_THRESHOLD
+                        || getCardSalesCache().length > SAFE_RECORD_COUNT_THRESHOLD;
+                } catch (eCount) { /* نادیار */ }
+                if (usageBytes > SAFE_USAGE_THRESHOLD_BYTES || recordsOverLimit) {
+                    // زۆرە (بە بایت یان بە ژمارەی تۆمار) — خۆکارانە پاکی بکەوە و بە بەکارهێنەر ڕابگەیەنە
                     await trimLocalStorageForSpace(1);
                     const afterMB = (getLocalStorageUsageBytes() / (1024 * 1024)).toFixed(1);
                     showToast(`🧹 بیرگە خۆکارانە پاکرایەوە لە دەستپێکردندا (${usageMB}MB → ${afterMB}MB)`, 'success');
