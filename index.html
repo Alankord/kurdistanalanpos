@@ -2667,6 +2667,12 @@
         // چونکە هەرگیز sync سەرناکەوێت. ئەم فەنکشنە queue‌ەکە بە تەواوی پاک دەکاتەوە.
         // ⚠️ گرنگ: ئەمە تەنیا "لیستی چاوەڕوانی ناردن" دەسڕێتەوە، هیچ فرۆشتن/کاڵا/کارتێک ناسڕێتەوە —
         // ئەو داتایانە خۆیان بە جیا لە localStorage (sales/cardSales) و IndexedDB (sales/cardSales) هەڵدەگیرێن.
+        async function clearSyncQueueCore() {
+            safeSetLocalStorage('syncQueue', '[]');
+            await clearAllArchivedSyncQueue();
+            localStorage.removeItem('queueBacklogSince');
+        }
+
         async function clearSyncQueuePermanently() {
             const liveQueueLen = JSON.parse(localStorage.getItem('syncQueue') || '[]').length;
             const archivedLen = await countArchivedSyncQueue();
@@ -2686,8 +2692,7 @@
             );
             if (!ok) return;
 
-            safeSetLocalStorage('syncQueue', '[]');
-            await clearAllArchivedSyncQueue();
+            await clearSyncQueueCore();
 
             showToast(`✅ ${total.toLocaleString()} تۆماری چاوەڕوان پاکرایەوە`, 'success');
             updateQueuePendingBadge();
@@ -3023,6 +3028,25 @@
                         badge.style.borderColor = 'var(--border)';
                         badge.style.color = 'var(--text2)';
                     }
+                }
+
+                // ==== خۆکار پاککردنەوەی queue دوای ٢٤ سەعات بێ sync (بۆ بەکارهێنەرانێک sync ناوێن) ====
+                // ئەگەر queue بەردەوام پڕ بمێنێتەوە (بێ ئەوەی sync ببێتەوە یان بەدەستی پاک بکرێتەوە)
+                // بۆ زیاتر لە ٢٤ سەعات، خۆکارانە دەسڕدرێتەوە — هیچ فرۆشتن/کاڵا ناسڕدرێتەوە، تەنیا
+                // پرسیارنامەی چاوەڕوانی ناردنە. دوای سڕینەوە، ئاگاداریەک (toast) پیشان دەدرێت.
+                const AUTO_CLEAR_QUEUE_AFTER_MS = 24 * 60 * 60 * 1000; // ٢٤ سەعات
+                if (total > 0) {
+                    let backlogSince = parseInt(localStorage.getItem('queueBacklogSince') || '0', 10);
+                    if (!backlogSince) {
+                        backlogSince = Date.now();
+                        localStorage.setItem('queueBacklogSince', backlogSince.toString());
+                    } else if (Date.now() - backlogSince > AUTO_CLEAR_QUEUE_AFTER_MS) {
+                        await clearSyncQueueCore();
+                        showToast(`🗑️ ${total.toLocaleString('en-US')} تۆماری چاوەڕوان خۆکارانە پاکرایەوە (٢٤ سەعات sync نەکرا بوو). هیچ فرۆشتنێک نەسڕایەوە.`, 'success');
+                        return updateQueuePendingBadge();
+                    }
+                } else {
+                    localStorage.removeItem('queueBacklogSince');
                 }
 
                 // ==== ئاگاداری خۆکاری بۆ کەسانێک هەرگیز ئۆنلاین نابن ====
