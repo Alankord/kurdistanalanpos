@@ -1943,6 +1943,7 @@
                 <button class="btn btn-info" style="width: auto; margin: 0;" onclick="openArchiveViewer()">🗄️ مێژووی تەواو (ئەرشیف)</button>
                 <button class="btn btn-info" style="width: auto; margin: 0; border-color: var(--amber); color: var(--amber);" onclick="manualCleanupStorage()">🧹 پاکردنەوەی بیرگە بەدەستی</button>
                 <button class="btn btn-info" style="width: auto; margin: 0; border-color: var(--red); color: var(--red);" onclick="exportAndCleanupOldSales()">⬇️ دەرهێنان و پاککردنەوە (بێ ئینتەرنێت)</button>
+                <button class="btn btn-info" style="width: auto; margin: 0; border-color: var(--red); color: var(--red);" onclick="clearSyncQueuePermanently()">🗑️ پاکردنەوەی queue‌ی هاوکاتکردن (بۆ کەسانێک sync ناوێن)</button>
             </div>
 
             <div class="stats-grid">
@@ -2634,6 +2635,19 @@
             } catch (e) { console.error('Delete syncQueue archive entries failed:', e); }
         }
 
+        // سڕینەوەی هەموو دانەکانی ئەرشیفی syncQueue بە یەک کردار (بۆ کاتێک بەکارهێنەر بە تەواوی sync ناوێت)
+        async function clearAllArchivedSyncQueue() {
+            try {
+                const dbx = await openArchiveDB();
+                await new Promise((resolve, reject) => {
+                    const tx = dbx.transaction('syncQueueArchive', 'readwrite');
+                    tx.objectStore('syncQueueArchive').clear();
+                    tx.oncomplete = resolve;
+                    tx.onerror = () => reject(tx.error);
+                });
+            } catch (e) { console.error('Clear archived syncQueue failed:', e); }
+        }
+
         // چەند دانەی ئەرشیفکراو ماوە (بۆ نیشاندان/چێککردنی دۆخی queue)
         async function countArchivedSyncQueue() {
             try {
@@ -2645,6 +2659,38 @@
                     req.onerror = () => reject(req.error);
                 });
             } catch (e) { return 0; }
+        }
+
+        // ==================== پاکردنەوەی تەواوی queue‌ی هاوکاتکردن (بۆ کەسانێک sync ناوێن) ====================
+        // ئامانج: بۆ بەکارهێنەرانێک کە هەرگیز نایانەوێت داتا بنێردرێت بۆ Firebase (تەنیا کۆمپیوتەرێکی
+        // لۆکاڵی بەکاردەهێنن)، queue‌ی هاوکاتکردن (localStorage + IndexedDB) هەر بەردەوام گەورەتر دەبێت
+        // چونکە هەرگیز sync سەرناکەوێت. ئەم فەنکشنە queue‌ەکە بە تەواوی پاک دەکاتەوە.
+        // ⚠️ گرنگ: ئەمە تەنیا "لیستی چاوەڕوانی ناردن" دەسڕێتەوە، هیچ فرۆشتن/کاڵا/کارتێک ناسڕێتەوە —
+        // ئەو داتایانە خۆیان بە جیا لە localStorage (sales/cardSales) و IndexedDB (sales/cardSales) هەڵدەگیرێن.
+        async function clearSyncQueuePermanently() {
+            const liveQueueLen = JSON.parse(localStorage.getItem('syncQueue') || '[]').length;
+            const archivedLen = await countArchivedSyncQueue();
+            const total = liveQueueLen + archivedLen;
+
+            if (!total) {
+                showToast('✅ queue‌ی هاوکاتکردن ئێستاش بەتاڵە', 'success');
+                return;
+            }
+
+            const ok = confirm(
+                `⚠️ ${total.toLocaleString()} تۆماری چاوەڕوانی "هاوکاتکردن لەگەڵ Firebase" بۆ هەمیشە دەسڕدرێتەوە.\n\n` +
+                `✅ ئەمە هیچ فرۆشتن، کاڵا، یان کارتێک ناسڕێتەوە — تەنیا "لیستی چاوەڕوانی ناردن بۆ ئۆنلاین" پاک دەکاتەوە.\n` +
+                `✅ هەموو ڕاپۆرت و مێژووی فرۆشتنەکانت وەک خۆیان دەمێننەوە لە بەرنامەکەدا.\n\n` +
+                `بەکارببە تەنیا ئەگەر ئەم کۆمپیوتەرە هەرگیز نایەوێت sync بکات لەگەڵ Firebase.\n\n` +
+                `دڵنیایت؟`
+            );
+            if (!ok) return;
+
+            safeSetLocalStorage('syncQueue', '[]');
+            await clearAllArchivedSyncQueue();
+
+            showToast(`✅ ${total.toLocaleString()} تۆماری چاوەڕوان پاکرایەوە`, 'success');
+            updateQueuePendingBadge();
         }
 
         // مۆداڵی سادە بۆ بینینی مێژووی تەواو (localStorage + ئەرشیفی IndexedDB پێکەوە)
