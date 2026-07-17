@@ -1445,12 +1445,12 @@
                         <!-- ڕێکخستنەکان -->
                         <div class="form-group">
                             <label>کڕیار:</label>
-                            <select id="customerSelect" class="form-control">
+                            <select id="customerSelect" class="form-control" onchange="onCustomerSelectChangeAuto()">
                                 <option value="">کڕیاری ئاسایی</option>
                             </select>
                         </div>
 
-                        <div class="form-group">
+                        <div class="form-group" id="paymentMethodGroup">
                             <label>شێوازی پارەدان:</label>
                             <select id="paymentMethod" class="form-control" onchange="toggleCreditCashInput()">
                                 <option value="cash">💵 پارەی نەقد</option>
@@ -4049,6 +4049,7 @@
             if (customerSelect) customerSelect.value = c.customerId || '';
             const paymentMethod = document.getElementById('paymentMethod');
             if (paymentMethod) paymentMethod.value = c.paymentMethod || 'cash';
+            updatePaymentMethodVisibility();
             const invoiceEl = document.getElementById('invoiceNo');
             if (invoiceEl) invoiceEl.textContent = c.invoiceNo;
             renderCartTabs();
@@ -4556,6 +4557,29 @@
                 const input = document.getElementById('creditCashReceived');
                 if (input) input.value = 0;
             }
+        }
+
+        function updatePaymentMethodVisibility() {
+            // بۆ کڕیاری ئاسایی پێویست بە شێوازی پارەدان نییە لەسەر شاشەکە بمێنێت، چونکە هەمیشە نەقدە.
+            // بۆ کڕیارێکی دیاریکراو (بەناو)، دەردەکەوێت تاوەکو بتوانرێت کارت/قەرز هەڵبژێردرێت.
+            const cs = document.getElementById('customerSelect');
+            const group = document.getElementById('paymentMethodGroup');
+            if (!cs || !group) return;
+            group.style.display = cs.value ? '' : 'none';
+        }
+
+        function onCustomerSelectChangeAuto() {
+            // کاتێک کڕیار دەبێتە "کڕیاری ئاسایی" (بەتاڵ)، تەنها ئەگەر شێوازی پارەدان "قەرز" بوو
+            // دەیگۆڕین بۆ "نەقد" (چونکە قەرز پێویستی بە کڕیارێکی دیاریکراو هەیە).
+            // ئەگەر شێوازەکە نەقد یان کارت بوو، وەک خۆی دەمێنێتەوە و ناگۆڕدرێت.
+            const cs = document.getElementById('customerSelect');
+            const pm = document.getElementById('paymentMethod');
+            if (!cs || !pm) return;
+            if (!cs.value && pm.value === 'credit') {
+                pm.value = 'cash';
+                toggleCreditCashInput();
+            }
+            updatePaymentMethodVisibility();
         }
 
         async function completeSale() {
@@ -7187,6 +7211,7 @@
                 await loadCustomers();
                 updateDateTime();
                 renderCartTabs();
+                updatePaymentMethodVisibility();
                 
                 // ئۆتۆماتیکی focus بچۆ بۆ سکانەری بارکۆد لە دەستپێکردندا
                 setTimeout(() => {
@@ -7219,6 +7244,7 @@
                 await loadCustomers();
                 updateDateTime();
                 renderCartTabs();
+                updatePaymentMethodVisibility();
                 setInterval(updateDateTime, 1000);
                 if (recoveredCart) {
                     showToast('🔄 کرینێکی ناتەواو لە پێش ئەم داخستنە گەڕایەوە', 'success');
