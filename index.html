@@ -765,21 +765,7 @@
 
         .camera-btn:hover { background: var(--purple); color: var(--text); border-color: var(--purple); }
 
-        /* ===== OFFLINE BADGES ===== */
-        .offline-badge {
-            display: inline-block;
-            background: var(--red-dim);
-            color: var(--red);
-            font-size: 10px;
-            padding: 2px 6px;
-            border-radius: 8px;
-            margin-right: 5px;
-            font-weight: 700;
-            vertical-align: middle;
-        }
-
-        .offline-row { background: rgba(239,68,68,0.05) !important; border-right: 3px solid var(--red); }
-        .offline-row td { color: #FCA5A5 !important; }
+        /* ===== OFFLINE BADGES (removed — system runs fully offline, badge not needed) ===== */
 
         .synced-row { animation: syncFlash 1.5s ease forwards; }
 
@@ -4110,6 +4096,15 @@
             return invoiceNo;
         }
 
+        // پشکنینی ئەوەی ژمارەی پسوولەی هەڵگیراو هی ئەمڕۆیە یان نا — ئەگەر لە ڕۆژێکی
+        // پێشوو مابێتەوە (بۆ نموونە کرینێکی ناتەواو لە دوێنێ گەڕابێتەوە)، دەبێت نوێ بکرێتەوە
+        function isInvoiceNoToday(invoiceNo) {
+            if (!invoiceNo) return false;
+            const now = new Date();
+            const datePart = `${now.getFullYear()}${(now.getMonth()+1).toString().padStart(2,'0')}${now.getDate().toString().padStart(2,'0')}`;
+            return invoiceNo.startsWith(`INV-${datePart}-`);
+        }
+
         async function displayProducts(filter = '') {
             const products = getProductsCache();
             const grid = document.getElementById('productGrid');
@@ -6018,9 +6013,8 @@
             }
 
             tbody.innerHTML = periodSales.slice(0, 100).map(s => `
-                <tr class="${s.offlineSaved ? 'offline-row' : ''}">
+                <tr>
                     <td>
-                        ${s.offlineSaved ? '<span class="offline-badge">📵 ئۆفلاین</span>' : ''}
                         ${s.createdAt ? new Date(s.createdAt).toLocaleString('ckb') : 'N/A'}
                     </td>
                     <td>💳 ${s.cardName}</td>
@@ -6380,11 +6374,9 @@
             return salesArr.slice(0, 50).map(s => {
                 const saleProfit = s.profit != null ? s.profit : (s.total - (s.totalCost || 0));
                 const hasReturn = !!returnsBySale[s.id];
-                const isOffline = !!s.offlineSaved;
                 return `
-                <tr class="${isOffline ? 'offline-row' : ''}">
+                <tr>
                     <td>
-                        ${isOffline ? '<span class="offline-badge">📵 ئۆفلاین</span>' : ''}
                         ${s.invoiceNo || 'N/A'}
                         ${hasReturn ? '<span class="badge badge-warning" style="margin-right:4px;">گەڕێنراوەتەوە</span>' : ''}
                     </td>
@@ -6506,7 +6498,7 @@
                 if (d < start || d > end) return false;
                 if (selectedCashier && s.cashierName !== selectedCashier) return false;
                 return true;
-            });
+            }).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
             const periodReturns = returns.filter(r => {
                 if (!r.createdAt) return false;
                 const d = new Date(r.createdAt);
@@ -6653,9 +6645,8 @@
                     returnsTbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text3);">هیچ گەڕاندنەوەیەک نییە بۆ ئەم ماوەیە</td></tr>';
                 } else {
                     returnsTbody.innerHTML = periodReturns.slice(0, 50).map(r => `
-                        <tr class="${r.offlineSaved ? 'offline-row' : ''}">
+                        <tr>
                             <td>
-                                ${r.offlineSaved ? '<span class="offline-badge">📵 ئۆفلاین</span>' : ''}
                                 ${r.invoiceNo || 'N/A'}
                             </td>
                             <td>${r.createdAt ? new Date(r.createdAt).toLocaleString('ckb') : 'N/A'}</td>
@@ -7203,7 +7194,7 @@
                     updateCart();
                     await loadCustomers();
                     renderCartTabs();
-                    if (!currentInvoiceNo) {
+                    if (!isInvoiceNoToday(currentInvoiceNo)) {
                         currentInvoiceNo = generateInvoiceNo();
                         const invoiceEl = document.getElementById('invoiceNo');
                         if (invoiceEl) invoiceEl.textContent = currentInvoiceNo;
@@ -7259,7 +7250,7 @@
                 localStorage.removeItem('queueBacklogSince');
                 await clearAllArchivedSyncQueue();
 
-                if (!currentInvoiceNo) {
+                if (!isInvoiceNoToday(currentInvoiceNo)) {
                     currentInvoiceNo = generateInvoiceNo();
                 }
                 const invoiceEl = document.getElementById('invoiceNo');
@@ -7292,7 +7283,7 @@
                 console.error('Initialization error:', error);
                 updateConnectionStatus('offline');
                 
-                if (!currentInvoiceNo) {
+                if (!isInvoiceNoToday(currentInvoiceNo)) {
                     currentInvoiceNo = generateInvoiceNo();
                 }
                 const invoiceEl = document.getElementById('invoiceNo');
