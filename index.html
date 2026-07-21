@@ -1518,6 +1518,8 @@
                         <option value="qty-asc">بڕ: کەمترین یەکەم</option>
                         <option value="qty-desc">بڕ: زۆرترین یەکەم</option>
                         <option value="value-desc">بەها: زۆرترین یەکەم</option>
+                        <option value="updated-desc">گۆڕانکاری: نوێترین یەکەم</option>
+                        <option value="updated-asc">گۆڕانکاری: کۆنترین یەکەم</option>
                     </select>
                     <button class="export-btn" onclick="exportInventoryCSV()">⬇️ دەرهێنانی CSV</button>
                     <button class="import-btn" onclick="openImportModal('products')">⬆️ کرنا تێدا CSV</button>
@@ -4862,6 +4864,13 @@
             if (sortVal === 'qty-asc') filtered.sort((a, b) => a.quantity - b.quantity);
             else if (sortVal === 'qty-desc') filtered.sort((a, b) => b.quantity - a.quantity);
             else if (sortVal === 'value-desc') filtered.sort((a, b) => (b.price * b.quantity) - (a.price * a.quantity));
+            else if (sortVal === 'updated-desc' || sortVal === 'updated-asc') {
+                const getTime = p => {
+                    const t = new Date(p.updatedAt || p.createdAt || 0).getTime();
+                    return isNaN(t) ? 0 : t;
+                };
+                filtered.sort((a, b) => sortVal === 'updated-desc' ? (getTime(b) - getTime(a)) : (getTime(a) - getTime(b)));
+            }
             else filtered.sort((a, b) => a.name.localeCompare(b.name, 'ckb'));
             
             if (filtered.length === 0) {
