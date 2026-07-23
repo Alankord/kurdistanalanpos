@@ -1343,16 +1343,17 @@
                 <button class="nav-btn" onclick="showSection('cards')">💳 کارت</button>
                 <button class="nav-btn" onclick="showSection('customers')">👥 کڕیاران</button>
                 <button class="nav-btn" onclick="showSection('reports')">📊 ڕاپۆرت</button>
+                <button class="nav-btn" onclick="showSection('settings')">⚙️ ڕێکخستن</button>
             </div>
         </div>
 
         <!-- بەشی فرۆشتن (POS) -->
         <div id="posSection" class="section active">
-            <div class="pos-layout">
+            <div class="pos-layout" id="posMainLayout">
                 <!-- لای ڕاست -->
-                <div>
+                <div id="posRightCol">
                     <!-- سکانەری بارکۆد -->
-                    <div class="barcode-scanner">
+                    <div class="barcode-scanner" id="posWidgetScanner">
                         <h4>📱 سکانەری بارکۆد</h4>
                         <input type="text" id="barcodeInput" placeholder="بارکۆد سکان بکە یان بنووسە..." autofocus>
                         <small style="color: var(--text2); display: block; margin-top: 5px;">Enter دابگرە دوای سکانکردن</small>
@@ -1360,7 +1361,7 @@
                     </div>
 
                     <!-- گەڕان -->
-                    <div class="card">
+                    <div class="card" id="posWidgetProducts">
                         <div class="card-header">
                             <span>📦 کاڵاکان</span>
                             <input type="text" id="searchBox" class="form-control" style="width: 200px;" placeholder="گەڕان بە ناو یان بارکۆد...">
@@ -1371,7 +1372,7 @@
                     </div>
 
                     <!-- کارت: جیاواز لە کاڵا - زیادکردنی ڕاستەوخۆ بۆ سەبەتە -->
-                    <div class="card">
+                    <div class="card" id="posWidgetCards">
                         <div class="card-header">
                             <span>💳 کارت</span>
                         </div>
@@ -1670,26 +1671,6 @@
                 </p>
             </div>
 
-            <!-- مێژووی ڕەسیدەکان -->
-            <div class="card">
-                <div class="card-header">📋 مێژووی ڕەسیدەکان</div>
-                <div style="overflow-x: auto;">
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th>📅 بەروار</th>
-                                <th>📝 چالاکی</th>
-                                <th>💰 بڕ</th>
-                                <th>📊 باڵانس دوای</th>
-                            </tr>
-                        </thead>
-                        <tbody id="restockHistoryBody">
-                            <tr><td colspan="4" style="text-align:center; color:#999;">هیچ چالاکیەکی ڕەسید تۆمارنەکراوە</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
             <div class="toolbar">
                 <select id="cardReportRangeSelect" onchange="onCardReportRangeChange()">
                     <option value="today">ئەمڕۆ</option>
@@ -1798,28 +1779,6 @@
                 </div>
             </div>
 
-            <!-- مێژووی فرۆشتنی کارت -->
-            <div class="card">
-                <div class="card-header">📋 مێژووی فرۆشتنی کارت (ماوەی هەڵبژێردراو)</div>
-                <div style="overflow-x: auto;">
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th>بەروار</th>
-                                <th>ناوی کارت</th>
-                                <th>دانە</th>
-                                <th>کۆی ڕەسید</th>
-                                <th>کۆی فرۆشتن</th>
-                                <th>سوود</th>
-                                <th>کردارەکان</th>
-                            </tr>
-                        </thead>
-                        <tbody id="cardSalesTableBody">
-                            <tr><td colspan="7" style="text-align: center; color: var(--text3);">هیچ فرۆشتنێکی کارت نییە</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
         </div>
 
         <!-- بەشی بەڕێوەبردنی کڕیاران -->
@@ -2022,6 +1981,165 @@
                         </tbody>
                     </table>
                 </div>
+            </div>
+        </div>
+
+        <!-- بەشی ڕێکخستنی پسوولە -->
+        <div id="settingsSection" class="section">
+            <div class="pos-layout">
+                <!-- لای ڕاست: فۆرمی ڕێکخستنەکان -->
+                <div>
+                    <div class="card">
+                        <div class="card-header">🏪 زانیاری دوکان</div>
+                        <div style="padding: 4px 0;">
+                            <div class="form-group">
+                                <label>ناوی دوکان:</label>
+                                <input type="text" id="setShopName" class="form-control" placeholder="بۆ نموونە: دوکانی نمونە" oninput="updateReceiptPreview()">
+                            </div>
+                            <div class="form-group">
+                                <label>ناونیشان:</label>
+                                <input type="text" id="setShopAddress" class="form-control" placeholder="بۆ نموونە: شەقامی سەرەکی، سلێمانی" oninput="updateReceiptPreview()">
+                            </div>
+                            <div class="form-group">
+                                <label>ژمارەی تەلەفۆن:</label>
+                                <input type="text" id="setShopPhone" class="form-control" placeholder="بۆ نموونە: 0770-123-4567" oninput="updateReceiptPreview()">
+                            </div>
+                            <div class="form-group">
+                                <label>ناوەڕۆکی خوارەوەی پسوولە (پەیامی سوپاس):</label>
+                                <input type="text" id="setReceiptFooter" class="form-control" placeholder="سوپاس بۆ کڕینتان! ❤️" oninput="updateReceiptPreview()">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">🖼️ لۆگۆ / QR (زیادکردنی وێنە)</div>
+                        <div style="padding: 4px 0;">
+                            <div class="form-group">
+                                <label>وێنە هەڵبژێرە (لۆگۆی دوکان یان وێنەی کۆدی QR):</label>
+                                <input type="file" id="setLogoImageInput" accept="image/*" class="form-control" onchange="handleLogoImageUpload(event)">
+                            </div>
+                            <div id="logoImagePreviewWrap" style="display:none; margin-bottom:14px; text-align:center;">
+                                <img id="logoImagePreviewThumb" style="max-width:120px; max-height:120px; border:1px solid var(--border); border-radius:8px; background:#fff; padding:4px;">
+                                <div>
+                                    <button type="button" class="btn btn-danger" style="margin-top:8px;" onclick="removeLogoImage()">🗑️ سڕینەوەی وێنە</button>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                                    <input type="checkbox" id="setShowLogoImage" style="width:auto;" onchange="updateReceiptPreview()">
+                                    نیشاندانی ئەم وێنەیە لە سەرووی پسوولەدا
+                                </label>
+                            </div>
+                            <div class="form-group">
+                                <label>قەبارەی وێنە لە پسوولەدا:</label>
+                                <select id="setLogoImageSize" class="form-control" onchange="updateReceiptPreview()">
+                                    <option value="small">بچووک</option>
+                                    <option value="medium" selected>مامناوەند</option>
+                                    <option value="large">گەورە</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">🧾 دیزاینی پسوولە</div>
+                        <div style="padding: 4px 0;">
+                            <div class="form-group">
+                                <label>قەبارەی پسوولە (کاغەز):</label>
+                                <select id="setReceiptSize" class="form-control" onchange="updateReceiptPreview()">
+                                    <option value="58mm">🧾 ڕیسیت بچووک (58mm)</option>
+                                    <option value="80mm">🧾 ڕیسیت ئاسایی (80mm)</option>
+                                    <option value="a4">📄 A4 (کاغەزی گەورە)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>قەبارەی فۆنت:</label>
+                                <select id="setReceiptFontSize" class="form-control" onchange="updateReceiptPreview()">
+                                    <option value="small">بچووک</option>
+                                    <option value="medium" selected>مامناوەند</option>
+                                    <option value="large">گەورە</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>ستایلی سەرپەڕە:</label>
+                                <select id="setReceiptHeaderStyle" class="form-control" onchange="updateReceiptPreview()">
+                                    <option value="simple">ساکار (تەنیا ناوی دوکان)</option>
+                                    <option value="boxed">چوارچێوەدار</option>
+                                    <option value="line">هێڵی جیاکەرەوە</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                                    <input type="checkbox" id="setShowLogo" style="width:auto;" onchange="updateReceiptPreview()" checked>
+                                    نیشاندانی ئایکۆنی دوکان (🏪) لە پسوولەدا
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">🖥️ ڕێکخستنی شاشەی فرۆشتن (POS)</div>
+                        <p style="color: var(--text3); font-size:12px; margin: 0 0 10px;">ئەم ڕێکخستنانە شێوازی نیشاندانی خانەی فرۆشتنی سەرەکی دەگۆڕن (نەک پسوولەی چاپکراو).</p>
+                        <div style="padding: 4px 0;">
+                            <div class="form-group">
+                                <label>قەبارەی سەبەتەی کڕین (کارت):</label>
+                                <select id="setCartWidth" class="form-control" onchange="savePosLayoutSettingsFn()">
+                                    <option value="narrow">باریک (کاڵا/سکانەر فراوانتر)</option>
+                                    <option value="normal" selected>ئاسایی (بنەڕەت)</option>
+                                    <option value="wide">فراوان (سەبەتە گەورەتر)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>شوێنی سکانەر و کاڵاکان:</label>
+                                <select id="setScannerPosition" class="form-control" onchange="savePosLayoutSettingsFn()">
+                                    <option value="right" selected>لای ڕاست (بنەڕەت)، سەبەتە لای چەپ</option>
+                                    <option value="left">لای چەپ، سەبەتە لای ڕاست</option>
+                                </select>
+                            </div>
+                            <hr style="border-color: var(--border); margin: 14px 0;">
+                            <p style="color: var(--text3); font-size:12px; margin: 0 0 8px;">ڕیزبەندی خانەکان لە ناو هەمان لا (سکانەر، کاڵاکان، کارت):</p>
+                            <div class="form-group">
+                                <label>📱 سکانەری بارکۆد:</label>
+                                <select id="setWidgetOrderScanner" class="form-control" onchange="savePosLayoutSettingsFn()">
+                                    <option value="1">یەکەم (سەرەوە)</option>
+                                    <option value="2">دووەم</option>
+                                    <option value="3">سێیەم (خوارەوە)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>📦 لیستی کاڵاکان:</label>
+                                <select id="setWidgetOrderProducts" class="form-control" onchange="savePosLayoutSettingsFn()">
+                                    <option value="1">یەکەم (سەرەوە)</option>
+                                    <option value="2" selected>دووەم</option>
+                                    <option value="3">سێیەم (خوارەوە)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>💳 لیستی کارت:</label>
+                                <select id="setWidgetOrderCards" class="form-control" onchange="savePosLayoutSettingsFn()">
+                                    <option value="1">یەکەم (سەرەوە)</option>
+                                    <option value="2">دووەم</option>
+                                    <option value="3" selected>سێیەم (خوارەوە)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button class="btn btn-complete-sale" style="width:100%;" onclick="saveReceiptSettingsFn()">💾 پاشەکەوتکردنی ڕێکخستنەکانی پسوولە</button>
+                </div>
+
+                <!-- لای چەپ: پێشبینینی پسوولە -->
+                <div>
+                    <div class="card">
+                        <div class="card-header">👁️ پێشبینینی پسوولە (Live Preview)</div>
+                        <p style="color: var(--text3); font-size:12px; margin: 0 0 10px;">هەر گۆڕانکارییەک لە فۆرمەکەدا خۆکارانە لێرە دەردەکەوێت.</p>
+                        <div style="background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; display:flex; justify-content:center; overflow-x:auto;">
+                            <div id="receiptPreviewBox" style="background:#fff; color:#111; box-shadow: var(--shadow); transition: width 0.2s ease;"></div>
+                        </div>
+                        <button class="btn btn-warning" style="width:100%; margin-top:12px;" onclick="testPrintReceiptPreview()">🖨️ پسوولەی تاقیکردنەوە چاپبکە</button>
+                    </div>
+                </div>
+
             </div>
         </div>
     </div>
@@ -4791,28 +4909,302 @@
             printReceipt(lastSale);
         }
 
-        function printReceipt(sale) {
-            const printDiv = document.getElementById('printArea');
-            if (!printDiv) return;
-            
+        // ==================== ڕێکخستنەکانی پسوولە (Receipt Settings) ====================
+        const RECEIPT_SETTINGS_DEFAULTS = {
+            shopName: 'دوکانی نمونە',
+            shopAddress: 'شەقامی سەرەکی، سلێمانی',
+            shopPhone: '0770-123-4567',
+            footerMsg: 'سوپاس بۆ کڕینتان! ❤️',
+            paperSize: '80mm',   // 58mm | 80mm | a4
+            fontSize: 'medium',  // small | medium | large
+            headerStyle: 'simple', // simple | boxed | line
+            showLogo: true,
+            logoImage: '',        // base64 dataURL of uploaded logo/QR image
+            showLogoImage: false,
+            logoImageSize: 'medium' // small | medium | large
+        };
+
+        // بیرگەی کاتیی وێنەی لۆگۆ/QR ی بارکراو (پێش پاشەکەوتکردن)
+        let currentLogoImageDataUrl = '';
+
+        function getReceiptSettings() {
+            try {
+                const saved = JSON.parse(localStorage.getItem('receiptSettings') || 'null') || {};
+                return Object.assign({}, RECEIPT_SETTINGS_DEFAULTS, saved);
+            } catch (e) {
+                return Object.assign({}, RECEIPT_SETTINGS_DEFAULTS);
+            }
+        }
+
+        function getReceiptSettingsFromForm() {
+            const val = (id) => (document.getElementById(id) || {}).value ?? '';
+            return {
+                shopName: val('setShopName').trim() || RECEIPT_SETTINGS_DEFAULTS.shopName,
+                shopAddress: val('setShopAddress').trim(),
+                shopPhone: val('setShopPhone').trim(),
+                footerMsg: val('setReceiptFooter').trim() || RECEIPT_SETTINGS_DEFAULTS.footerMsg,
+                paperSize: val('setReceiptSize') || RECEIPT_SETTINGS_DEFAULTS.paperSize,
+                fontSize: val('setReceiptFontSize') || RECEIPT_SETTINGS_DEFAULTS.fontSize,
+                headerStyle: val('setReceiptHeaderStyle') || RECEIPT_SETTINGS_DEFAULTS.headerStyle,
+                showLogo: !!(document.getElementById('setShowLogo') || {}).checked,
+                logoImage: currentLogoImageDataUrl || '',
+                showLogoImage: !!(document.getElementById('setShowLogoImage') || {}).checked,
+                logoImageSize: val('setLogoImageSize') || RECEIPT_SETTINGS_DEFAULTS.logoImageSize
+            };
+        }
+
+        function loadReceiptSettingsUI() {
+            const s = getReceiptSettings();
+            const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+            set('setShopName', s.shopName);
+            set('setShopAddress', s.shopAddress);
+            set('setShopPhone', s.shopPhone);
+            set('setReceiptFooter', s.footerMsg);
+            set('setReceiptSize', s.paperSize);
+            set('setReceiptFontSize', s.fontSize);
+            set('setReceiptHeaderStyle', s.headerStyle);
+            const logoBox = document.getElementById('setShowLogo');
+            if (logoBox) logoBox.checked = !!s.showLogo;
+
+            currentLogoImageDataUrl = s.logoImage || '';
+            const showImgBox = document.getElementById('setShowLogoImage');
+            if (showImgBox) showImgBox.checked = !!s.showLogoImage;
+            set('setLogoImageSize', s.logoImageSize);
+            showLogoImagePreview();
+
+            updateReceiptPreview();
+        }
+
+        function saveReceiptSettingsFn() {
+            const settings = getReceiptSettingsFromForm();
+            safeSetLocalStorage('receiptSettings', JSON.stringify(settings));
+            showToast('✅ ڕێکخستنەکانی پسوولە پاشەکەوتکران');
+            updateReceiptPreview();
+        }
+
+        // ==================== ڕێکخستنی شاشەی فرۆشتن (POS Layout) ====================
+        // قەبارەی سەبەتە/کاڵاکان و شوێنی سکانەر لە خانەی فرۆشتنی سەرەکیدا
+        function getPosLayoutSettings() {
+            try {
+                const saved = JSON.parse(localStorage.getItem('posLayoutSettings') || 'null') || {};
+                const defaults = { cartWidth: 'normal', scannerPosition: 'right', widgetOrder: { scanner: 1, products: 2, cards: 3 } };
+                const merged = Object.assign({}, defaults, saved);
+                merged.widgetOrder = Object.assign({}, defaults.widgetOrder, saved.widgetOrder || {});
+                return merged;
+            } catch (e) {
+                return { cartWidth: 'normal', scannerPosition: 'right', widgetOrder: { scanner: 1, products: 2, cards: 3 } };
+            }
+        }
+
+        function loadPosLayoutSettingsUI() {
+            const s = getPosLayoutSettings();
+            const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+            set('setCartWidth', s.cartWidth);
+            set('setScannerPosition', s.scannerPosition);
+            set('setWidgetOrderScanner', s.widgetOrder.scanner);
+            set('setWidgetOrderProducts', s.widgetOrder.products);
+            set('setWidgetOrderCards', s.widgetOrder.cards);
+        }
+
+        function savePosLayoutSettingsFn() {
+            const settings = {
+                cartWidth: (document.getElementById('setCartWidth') || {}).value || 'normal',
+                scannerPosition: (document.getElementById('setScannerPosition') || {}).value || 'right',
+                widgetOrder: {
+                    scanner: parseInt((document.getElementById('setWidgetOrderScanner') || {}).value) || 1,
+                    products: parseInt((document.getElementById('setWidgetOrderProducts') || {}).value) || 2,
+                    cards: parseInt((document.getElementById('setWidgetOrderCards') || {}).value) || 3
+                }
+            };
+            safeSetLocalStorage('posLayoutSettings', JSON.stringify(settings));
+            applyPosLayoutSettings();
+            showToast('✅ ڕێکخستنی شاشەی فرۆشتن گۆڕدرا');
+        }
+
+        // ڕوونووسینی گرید بۆ خانەی posMainLayout بەپێی ڕێکخستنە هەڵبژێردراوەکان.
+        // تەنیا لە شاشەی گەورە (>900px) کاریگەرە، تاکو یەک-ستوونی مۆبایل تێکنەچێت.
+        function applyPosLayoutSettings() {
+            const layout = document.getElementById('posMainLayout');
+            if (!layout || layout.children.length < 2) return;
+
+            const settings = getPosLayoutSettings();
+            const cartWidthMap = {
+                narrow: { products: 2.2, cart: 0.8 },
+                normal: { products: 1.6, cart: 1 },
+                wide:   { products: 1,   cart: 1.4 }
+            };
+            const ratio = cartWidthMap[settings.cartWidth] || cartWidthMap.normal;
+
+            const productsDiv = layout.children[0];
+            const cartDiv = layout.children[1];
+            let colsTemplate;
+
+            if (settings.scannerPosition === 'left') {
+                productsDiv.style.order = '2';
+                cartDiv.style.order = '1';
+                colsTemplate = `${ratio.cart}fr ${ratio.products}fr`;
+            } else {
+                productsDiv.style.order = '1';
+                cartDiv.style.order = '2';
+                colsTemplate = `${ratio.products}fr ${ratio.cart}fr`;
+            }
+
+            let styleTag = document.getElementById('posLayoutCustomStyle');
+            if (!styleTag) {
+                styleTag = document.createElement('style');
+                styleTag.id = 'posLayoutCustomStyle';
+                document.head.appendChild(styleTag);
+            }
+            styleTag.textContent = `@media (min-width: 901px) { #posMainLayout { grid-template-columns: ${colsTemplate} !important; } }`;
+
+            // ----- ڕیزبەندی ناوخۆیی خانەکانی (سکانەر / کاڵاکان / کارت) -----
+            const rightCol = document.getElementById('posRightCol');
+            const scannerEl = document.getElementById('posWidgetScanner');
+            const productsEl = document.getElementById('posWidgetProducts');
+            const cardsEl = document.getElementById('posWidgetCards');
+            if (rightCol) {
+                rightCol.style.display = 'flex';
+                rightCol.style.flexDirection = 'column';
+            }
+            const wOrder = settings.widgetOrder || { scanner: 1, products: 2, cards: 3 };
+            if (scannerEl) scannerEl.style.order = wOrder.scanner;
+            if (productsEl) productsEl.style.order = wOrder.products;
+            if (cardsEl) cardsEl.style.order = wOrder.cards;
+        }
+
+        // ----- بارکردنی وێنەی لۆگۆ/QR: وێنەکە بچووک دەکرێتەوە پێش پاشەکەوتکردن -----
+        // تاکو بیرگەی localStorage پڕنەبێت لە وێنە گەورەکان
+        function handleLogoImageUpload(event) {
+            const file = event.target.files && event.target.files[0];
+            if (!file) return;
+            if (!file.type.startsWith('image/')) {
+                showToast('⚠️ تەنیا فایلی وێنە قبووڵ دەکرێت', 'error');
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const img = new Image();
+                img.onload = function () {
+                    const maxDim = 320;
+                    let w = img.width, h = img.height;
+                    if (w > maxDim || h > maxDim) {
+                        if (w > h) { h = Math.round(h * maxDim / w); w = maxDim; }
+                        else { w = Math.round(w * maxDim / h); h = maxDim; }
+                    }
+                    const canvas = document.createElement('canvas');
+                    canvas.width = w; canvas.height = h;
+                    const ctx = canvas.getContext('2d');
+                    ctx.fillStyle = '#fff';
+                    ctx.fillRect(0, 0, w, h);
+                    ctx.drawImage(img, 0, 0, w, h);
+                    currentLogoImageDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+                    const showImgBox = document.getElementById('setShowLogoImage');
+                    if (showImgBox) showImgBox.checked = true;
+                    showLogoImagePreview();
+                    updateReceiptPreview();
+                };
+                img.onerror = function () { showToast('⚠️ نەتوانرا وێنەکە بکرێتەوە', 'error'); };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function showLogoImagePreview() {
+            const wrap = document.getElementById('logoImagePreviewWrap');
+            const thumb = document.getElementById('logoImagePreviewThumb');
+            if (!wrap || !thumb) return;
+            if (currentLogoImageDataUrl) {
+                thumb.src = currentLogoImageDataUrl;
+                wrap.style.display = 'block';
+            } else {
+                wrap.style.display = 'none';
+            }
+        }
+
+        function removeLogoImage() {
+            currentLogoImageDataUrl = '';
+            const showImgBox = document.getElementById('setShowLogoImage');
+            if (showImgBox) showImgBox.checked = false;
+            const fileInput = document.getElementById('setLogoImageInput');
+            if (fileInput) fileInput.value = '';
+            showLogoImagePreview();
+            updateReceiptPreview();
+        }
+
+        function receiptWidthPreviewPx(paperSize) {
+            if (paperSize === '58mm') return 220;
+            if (paperSize === 'a4') return 380;
+            return 300; // 80mm
+        }
+
+        function receiptWidthPrintCss(paperSize) {
+            if (paperSize === '58mm') return '58mm';
+            if (paperSize === 'a4') return '190mm';
+            return '80mm';
+        }
+
+        function receiptFontPx(fontSize) {
+            if (fontSize === 'small') return 11;
+            if (fontSize === 'large') return 16;
+            return 13;
+        }
+
+        function getSampleReceiptSale() {
+            return {
+                invoiceNo: 'SAMPLE-0001',
+                createdAt: new Date().toISOString(),
+                customerName: 'کڕیاری ئاسایی',
+                cashierName: 'کارمەندی نموونە',
+                items: [
+                    { name: 'کاڵای یەکەم', quantity: 2, price: 1500 },
+                    { name: 'کاڵای دووەم', quantity: 1, price: 3000 }
+                ],
+                subTotal: 6000,
+                discount: 500,
+                total: 5500,
+                paymentMethod: 'cash'
+            };
+        }
+
+        function buildReceiptHTML(sale, settings, widthCss) {
             const paymentMethodText = {
                 'cash': 'پارەی نەقد',
                 'card': 'کارتی بانکی',
                 'credit': 'قەرز'
             };
+            const fpx = receiptFontPx(settings.fontSize);
+            const logo = settings.showLogo ? '🏪 ' : '';
 
-            printDiv.innerHTML = `
-                <div style="text-align: center; font-family: 'Courier New', monospace; max-width: 300px; margin: auto;">
-                    <h2>🏪 دوکانی نمونە</h2>
-                    <p>شەقامی سەرەکی، سلێمانی</p>
-                    <p>تەلەفۆن: 0770-123-4567</p>
+            const logoImgSizePx = settings.logoImageSize === 'small' ? 60 : settings.logoImageSize === 'large' ? 140 : 95;
+            const logoImageHtml = (settings.showLogoImage && settings.logoImage)
+                ? `<div style="margin-bottom:6px;"><img src="${settings.logoImage}" style="max-width:${logoImgSizePx}px; max-height:${logoImgSizePx}px;"></div>`
+                : '';
+
+            let headerHtml;
+            if (settings.headerStyle === 'boxed') {
+                headerHtml = `<div style="border:2px solid #111; padding:8px; margin-bottom:6px;">
+                        <h2 style="font-size:${fpx + 5}px; margin:0;">${logo}${settings.shopName}</h2>
+                    </div>`;
+            } else if (settings.headerStyle === 'line') {
+                headerHtml = `<h2 style="font-size:${fpx + 5}px; margin:0 0 4px;">${logo}${settings.shopName}</h2>
+                    <div style="border-top:2px double #111; margin:4px 0;"></div>`;
+            } else {
+                headerHtml = `<h2 style="font-size:${fpx + 5}px; margin:0 0 4px;">${logo}${settings.shopName}</h2>`;
+            }
+
+            return `
+                <div style="text-align: center; font-family: 'Courier New', monospace; width: ${widthCss}; margin: auto; font-size: ${fpx}px; padding: 14px 10px; box-sizing: border-box; direction: rtl;">
+                    ${logoImageHtml}
+                    ${headerHtml}
+                    ${settings.shopAddress ? `<p style="margin:2px 0;">${settings.shopAddress}</p>` : ''}
+                    ${settings.shopPhone ? `<p style="margin:2px 0;">تەلەفۆن: ${settings.shopPhone}</p>` : ''}
                     <hr>
-                    <p><strong>پسوولە:</strong> ${sale.invoiceNo}</p>
-                    <p><strong>بەروار:</strong> ${new Date(sale.createdAt).toLocaleString('ckb')}</p>
-                    <p><strong>کڕیار:</strong> ${sale.customerName}</p>
-                    ${sale.cashierName ? `<p><strong>کارمەند:</strong> ${sale.cashierName}</p>` : ''}
+                    <p style="margin:2px 0;"><strong>پسوولە:</strong> ${sale.invoiceNo}</p>
+                    <p style="margin:2px 0;"><strong>بەروار:</strong> ${new Date(sale.createdAt).toLocaleString('ckb')}</p>
+                    <p style="margin:2px 0;"><strong>کڕیار:</strong> ${sale.customerName}</p>
+                    ${sale.cashierName ? `<p style="margin:2px 0;"><strong>کارمەند:</strong> ${sale.cashierName}</p>` : ''}
                     <hr>
-                    <table style="width: 100%;">
+                    <table style="width: 100%; font-size: ${fpx}px;">
                         <tr><th align="right">کاڵا</th><th>دانە</th><th>نرخ</th><th>کۆ</th></tr>
                         ${sale.items.map(item => `
                             <tr>
@@ -4824,14 +5216,36 @@
                         `).join('')}
                     </table>
                     <hr>
-                    <p>کۆی گشتی: ${sale.subTotal.toLocaleString()} د.ع</p>
-                    ${sale.discount > 0 ? `<p>داشکاندن: ${sale.discount.toLocaleString()} د.ع</p>` : ''}
-                    <p style="font-size: 18px; font-weight: bold;">کۆتایی: ${sale.total.toLocaleString()} د.ع</p>
-                    <p>شێوازی پارەدان: ${paymentMethodText[sale.paymentMethod]}</p>
+                    <p style="margin:2px 0;">کۆی گشتی: ${sale.subTotal.toLocaleString()} د.ع</p>
+                    ${sale.discount > 0 ? `<p style="margin:2px 0;">داشکاندن: ${sale.discount.toLocaleString()} د.ع</p>` : ''}
+                    <p style="font-size: ${fpx + 5}px; font-weight: bold; margin:4px 0;">کۆتایی: ${sale.total.toLocaleString()} د.ع</p>
+                    <p style="margin:2px 0;">شێوازی پارەدان: ${paymentMethodText[sale.paymentMethod] || sale.paymentMethod}</p>
                     <hr>
-                    <p>سوپاس بۆ کڕینتان! ❤️</p>
+                    <p style="margin:2px 0;">${settings.footerMsg}</p>
                 </div>
             `;
+        }
+
+        function updateReceiptPreview() {
+            const box = document.getElementById('receiptPreviewBox');
+            if (!box) return;
+            const settings = getReceiptSettingsFromForm();
+            const px = receiptWidthPreviewPx(settings.paperSize);
+            box.style.width = px + 'px';
+            box.innerHTML = buildReceiptHTML(getSampleReceiptSale(), settings, '100%');
+        }
+
+        function testPrintReceiptPreview() {
+            saveReceiptSettingsFn();
+            printReceipt(getSampleReceiptSale());
+        }
+
+        function printReceipt(sale) {
+            const printDiv = document.getElementById('printArea');
+            if (!printDiv) return;
+
+            const settings = getReceiptSettings();
+            printDiv.innerHTML = buildReceiptHTML(sale, settings, receiptWidthPrintCss(settings.paperSize));
 
             printDiv.style.display = 'block';
             window.print();
@@ -7173,6 +7587,7 @@
         // ==================== سکانەری بارکۆد و گەڕان ====================
         document.addEventListener('DOMContentLoaded', async function() {
             applyTheme(localStorage.getItem('theme') || 'dark');
+            applyPosLayoutSettings();
             const barcodeInput = document.getElementById('barcodeInput');
             
             if (barcodeInput) {
@@ -7346,7 +7761,7 @@
             }
 
             const buttons = document.querySelectorAll('.nav-buttons .nav-btn');
-            const sectionMap = { 'pos': 0, 'products': 1, 'cards': 2, 'customers': 3, 'reports': 4 };
+            const sectionMap = { 'pos': 0, 'products': 1, 'cards': 2, 'customers': 3, 'reports': 4, 'settings': 5 };
             if (sectionMap[sectionName] !== undefined) {
                 buttons[sectionMap[sectionName]].classList.add('active');
             }
@@ -7376,6 +7791,9 @@
                     await loadCustomers();
                 } else if (sectionName === 'reports') {
                     await loadReports();
+                } else if (sectionName === 'settings') {
+                    loadReceiptSettingsUI();
+                    loadPosLayoutSettingsUI();
                 }
             } catch (error) {
                 console.error(`Error loading section ${sectionName}:`, error);
