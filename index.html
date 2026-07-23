@@ -1897,6 +1897,7 @@
                 </select>
                 <button class="btn btn-info" style="width: auto; margin: 0;" onclick="loadReports()">🔄 نوێکردنەوە</button>
                 <button class="btn btn-warning" style="width: auto; margin: 0;" onclick="resetReportCheckpoint()">🧮 سڤرکردنەوەی ژمێریار</button>
+                <button class="btn btn-info" style="width: auto; margin: 0;" onclick="openShiftHistoryModal()">📜 مێژووی سڤرکردنەوەکان</button>
                 <span id="reportCheckpointLabel" style="font-size:12px; color: var(--text3);"></span>
                 <button class="export-btn" onclick="exportSalesCSV()">⬇️ دەرهێنانی CSV</button>
                 <button class="import-btn" onclick="openImportModal('sales')">⬆️ کرنا تێدا CSV</button>
@@ -3471,7 +3472,9 @@
 
         async function syncSales() {
             if (OFFLINE_MODE || !navigator.onLine) {
-                return getSalesCache();
+                // تێبینی: ئەرشیفکراوەکانیش وەردەگیرێن (بۆ ڕاپۆرت) بەڵام دووبارە بۆ localStorage
+                // نانووسرێنەوە — بۆ ئەوەی هۆکاری ئەرشیفکردن (ئازادکردنی بیرگە) پووچ نەبێتەوە.
+                return await getAllSalesIncludingArchive();
             }
             try {
                 const snapshot = await db.collection('sales')
@@ -4493,19 +4496,41 @@
             updateCartFooter();
         }
 
+        // چارەسەری کێشەی "پارە کەم دەبێتەوە بەبێ هۆکار": کاتێک بیرگە (localStorage) پڕ دەبێت،
+        // trimLocalStorageForSpace() کۆنترین فرۆشتنەکان دەباتە ئەرشیفی IndexedDB بۆ ئەوەی
+        // بەرنامەکە هێواش نەبێت — ئەمە کاردروستە و هیچ فرۆشتنێک لەناوناچووە. بەڵام پێشتر
+        // کۆی گشتی "لە دوایین سڤرکردنەوە" تەنیا لە بیرگەی خێرا (localStorage) دەیخوێندەوە،
+        // بۆیە هەر فرۆشتنێک بۆ ئەرشیف بچووایە بەبێدەنگی لە کۆی گشتیدا نامایە — هەرچەندە هێشتا
+        // لە ئامێرەکەت مابوو و دەتوانرا بدۆزرێتەوە. ئەم فەنکشنە هەردووکیان (خێرا + ئەرشیف)
+        // پێکەوە کۆدەکاتەوە بۆ ئەوەی کۆی گشتی هەرگیز بەم شێوەیە کەم نەبێتەوە.
+        async function getAllSalesIncludingArchive() {
+            const live = getSalesCache();
+            let archived = [];
+            try { archived = await getAllArchived('sales'); } catch (e) { archived = []; }
+            const seen = new Set();
+            const merged = [];
+            for (const s of [...live, ...archived]) {
+                const key = s.invoiceNo || s.id;
+                if (seen.has(key)) continue;
+                seen.add(key);
+                merged.push(s);
+            }
+            return merged;
+        }
+
         // کاشی کۆی فرۆشتنی شیفت — پێشتر ئەم فەنکشنە لە هەر updateCart() (واتە هەر سکانێک) هەموو
         // مێژووی فرۆشتنی JSON.parse دەکردەوە و دەیخستە ناو filter/reduce — کاتێک مێژووی فرۆشتن
         // زۆر ببوایە (چەند مانگ بەکارهێنان)، ئەمە دەبووە هۆی فریزبوونی چەند چرکەیی لە کاتی سکانکردندا.
         // ئێستا تەنیا یەک جار پارس دەکرێت و پاشان بە خێرایی زیاد دەکرێت (incremental).
         let _shiftTotalCache = null; // { cp, total }
 
-        function updateCartShiftCounter() {
+        async function updateCartShiftCounter() {
             const el = document.getElementById('cartShiftCounter');
             if (!el) return;
             try {
                 const cp = (typeof getReportCheckpoint === 'function') ? getReportCheckpoint() : null;
                 if (_shiftTotalCache === null || _shiftTotalCache.cp !== cp) {
-                    const sales = getSalesCache();
+                    const sales = await getAllSalesIncludingArchive();
                     const startTime = cp ? new Date(cp).getTime() : 0;
                     // فرۆشتنی قەرزی نەدراوە ئەژمار ناکرێت وەک پارە هەتا کڕیار نەیداتەوە؛ بەڵام
                     // ئەگەر بەشێکی کاش وەرگیرابوو لە کاتی فرۆشتندا (تێکەڵ کاش+قەر)، ئەو بەشە ئەژمار دەکرێت
@@ -4521,7 +4546,9 @@
                     const returnedAmount = returns
                         .filter(r => r.createdAt && new Date(r.createdAt).getTime() >= startTime)
                         .reduce((sum, r) => sum + (r.refundAmount || 0), 0);
-                    _shiftTotalCache = { cp, total: totalAmount + debtPaidAmount - returnedAmount };
+                    // گۆڕانکارییە دەستییەکان (گواستنەوەی پارە بۆ/لە شیفتێکی تر)
+                    const adjustmentAmount = (typeof getAdjustmentTotalForPeriod === 'function') ? getAdjustmentTotalForPeriod(cp) : 0;
+                    _shiftTotalCache = { cp, total: totalAmount + debtPaidAmount - returnedAmount + adjustmentAmount };
                 }
                 el.textContent = `💰 ${_shiftTotalCache.total.toLocaleString()} د.ع ${cp ? 'لە دوایین سڤرکردنەوە' : 'کۆی گشتی'}`;
             } catch (e) {
@@ -6299,19 +6326,147 @@
 
         // ==================== بەشی ڕاپۆرت ====================
         const REPORT_CHECKPOINT_KEY = 'reportCheckpoint';
+        // مێژووی هەموو سڤرکردنەوەکانی پێشوو — هەر جارێک "سڤرکردنەوەی ژمێریار" دەکرێت، ماوەکەی
+        // پێش ئەوە لێرە هەڵدەگیرێت، بۆ ئەوەی دواتریش بتوانیت کۆی هەر شیفتێکی پێشوو ببینیتەوە
+        // (نەک تەنیا شیفتی ئێستا). هیچ فرۆشتنێک ناسڕدرێتەوە، تەنیا کاتەکانی سنووری هەر ماوەیەک هەڵدەگیرێت.
+        const REPORT_CHECKPOINT_HISTORY_KEY = 'reportCheckpointHistory';
+        // گۆڕانکارییە دەستییەکان (مانوێڵ): بۆ کاتێک دەتەوێت بڕێکی دیاریکراو لە پارەی ئەم شیفتە
+        // (کاتێک سڤری دەکەیت) بگوازیتەوە بۆ شیفتی داهاتوو، بۆ نموونە کاتێک ١٠١ هەیە بەڵام
+        // دەتەوێت ١٠٠ی بۆ ئەم شیفتە دابنێیت و ١ی بۆ شیفتی داهاتوو بمێنێتەوە.
+        const SHIFT_ADJUSTMENTS_KEY = 'shiftAdjustments';
+
+        function getShiftAdjustments() {
+            try { return JSON.parse(localStorage.getItem(SHIFT_ADJUSTMENTS_KEY) || '[]'); }
+            catch (e) { return []; }
+        }
+
+        // کۆی هەموو گۆڕانکارییە دەستییەکان کە بۆ شیفتێکی دیاریکراو تۆمارکراون (بەپێی کلیلی
+        // سەرەتای ئەو شیفتە، واتە هەمان بەهای p.from لە periods)
+        function getAdjustmentTotalForPeriod(periodFromKey) {
+            const adjustments = getShiftAdjustments();
+            const keyStr = periodFromKey || null;
+            return adjustments
+                .filter(a => (a.checkpoint || null) === keyStr)
+                .reduce((sum, a) => sum + (a.amount || 0), 0);
+        }
 
         function getReportCheckpoint() {
             return localStorage.getItem(REPORT_CHECKPOINT_KEY);
         }
 
+        function getReportCheckpointHistory() {
+            try { return JSON.parse(localStorage.getItem(REPORT_CHECKPOINT_HISTORY_KEY) || '[]'); }
+            catch (e) { return []; }
+        }
+
         function resetReportCheckpoint() {
             if (!confirm('دڵنیایت دەتەوێت ژمێریاری ڕاپۆرت بسڕیتەوە و لە ئێستاوە دەستپێبکەیتەوە؟ (بۆ نموونە لە کۆتایی گۆشەیەکی کارمەندێک)')) return;
-            safeSetLocalStorage(REPORT_CHECKPOINT_KEY, new Date().toISOString());
+            const oldCp = getReportCheckpoint(); // دەکرێت null بێت (یەکەم جار)
+            const now = new Date().toISOString();
+
+            // بژاردەی گواستنەوەی دەستی: بەکارهێنەر دەتوانێت بڕێک لەم شیفتە دەربهێنێت و بیباتە
+            // بۆ شیفتی داهاتوو (بۆ نموونە: ١٠١ هەیە، دەتوانیت ١ی بگوازیتەوە بۆ داهاتوو، ئەمە
+            // ١٠٠ لەم شیفتەدا دەمێنێتەوە و ١ لە شیفتی داهاتوودا زیاد دەبێت).
+            const carryOverInput = prompt('ئەگەر دەتەوێت بڕێک لەم شیفتە بگوازیتەوە بۆ شیفتی داهاتوو، بڕەکە بنووسە (بۆ نموونە: 1). ئەگەر نەتەوێت، بەتاڵی بهێڵەوە یان 0 بنووسە:', '0');
+            const carryOver = parseFloat(carryOverInput) || 0;
+
+            // پێش سڕینەوە، ماوەکەی پێشوو (from oldCp to now) تۆمار بکە بۆ مێژوو
+            const history = getReportCheckpointHistory();
+            history.push({ from: oldCp || null, to: now });
+            // سنووردارکردنی مێژوو بۆ ٣٠ دانەی دوایی، بۆ ئەوەی بیرگە پڕ نەبێت
+            const trimmedHistory = history.slice(-30);
+            safeSetLocalStorage(REPORT_CHECKPOINT_HISTORY_KEY, JSON.stringify(trimmedHistory));
+
+            if (carryOver !== 0) {
+                const adjustments = getShiftAdjustments();
+                // لە کۆی شیفتی داخراو (oldCp) کەمی بکەرەوە
+                adjustments.push({ checkpoint: oldCp || null, amount: -carryOver, createdAt: now, note: `گوێزراوەتەوە بۆ شیفتی داهاتوو` });
+                // بۆ کۆی شیفتی نوێ (now) زیادی بکە
+                adjustments.push({ checkpoint: now, amount: carryOver, createdAt: now, note: `گوێزراوەتەوە لە شیفتی پێشوو` });
+                safeSetLocalStorage(SHIFT_ADJUSTMENTS_KEY, JSON.stringify(adjustments.slice(-200)));
+            }
+
+            safeSetLocalStorage(REPORT_CHECKPOINT_KEY, now);
             const rangeSelect = document.getElementById('reportRangeSelect');
             if (rangeSelect) rangeSelect.value = 'shift';
             onReportRangeChange();
+            _shiftTotalCache = null;
             updateCartShiftCounter();
-            showToast('✅ ژمێریار سڤر کرایەوە، لە ئێستاوە ژمارە دەکرێت');
+            showToast(carryOver !== 0
+                ? `✅ ژمێریار سڤر کرایەوە — ${carryOver.toLocaleString()} د.ع گوێزرایەوە بۆ شیفتی داهاتوو`
+                : '✅ ژمێریار سڤر کرایەوە، لە ئێستاوە ژمارە دەکرێت (دەتوانیت کۆی شیفتی پێشوو لە "📜 مێژووی سڤرکردنەوەکان" ببینیتەوە)');
+        }
+
+        // کۆکردنەوەی کۆی فرۆشتن+گەڕاندنەوە+قەرزدان بۆ ماوەیەکی دیاریکراو [start, end)، بەگژ
+        // گۆڕانکارییە دەستییەکانی ئەو شیفتە (periodFromKey دەبێت هەمان بەهای p.from بێت)
+        async function computePeriodTotal(startTime, endTime, periodFromKey) {
+            const sales = await getAllSalesIncludingArchive();
+            const totalAmount = sales
+                .filter(s => s.createdAt && new Date(s.createdAt).getTime() >= startTime && new Date(s.createdAt).getTime() < endTime)
+                .reduce((sum, s) => sum + (s.paymentMethod === 'credit' ? (s.paidAtSale || 0) : (s.total || 0)), 0);
+            const debtPayments = getDebtPaymentsCache();
+            const debtPaidAmount = debtPayments
+                .filter(p => p.createdAt && new Date(p.createdAt).getTime() >= startTime && new Date(p.createdAt).getTime() < endTime)
+                .reduce((sum, p) => sum + (p.amount || 0), 0);
+            const returns = JSON.parse(localStorage.getItem('returns') || '[]');
+            const returnedAmount = returns
+                .filter(r => r.createdAt && new Date(r.createdAt).getTime() >= startTime && new Date(r.createdAt).getTime() < endTime)
+                .reduce((sum, r) => sum + (r.refundAmount || 0), 0);
+            const adjustmentAmount = periodFromKey !== undefined ? getAdjustmentTotalForPeriod(periodFromKey) : 0;
+            return {
+                total: totalAmount + debtPaidAmount - returnedAmount + adjustmentAmount,
+                count: sales.filter(s => s.createdAt && new Date(s.createdAt).getTime() >= startTime && new Date(s.createdAt).getTime() < endTime).length,
+                adjustmentAmount
+            };
+        }
+
+        async function openShiftHistoryModal() {
+            let modal = document.getElementById('shiftHistoryModal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'shiftHistoryModal';
+                modal.className = 'csv-modal-overlay active';
+                modal.innerHTML = `
+                    <div class="csv-modal" style="max-width:560px;">
+                        <h3>📜 مێژووی سڤرکردنەوەکان (شیفتەکان)</h3>
+                        <div id="shiftHistoryBody" style="max-height:60vh; overflow:auto; margin:10px 0; font-size:13px;"></div>
+                        <div class="csv-modal-footer">
+                            <button class="csv-btn-cancel" onclick="document.getElementById('shiftHistoryModal').classList.remove('active')">❌ داخستن</button>
+                        </div>
+                    </div>`;
+                document.body.appendChild(modal);
+            } else {
+                modal.classList.add('active');
+            }
+            const body = document.getElementById('shiftHistoryBody');
+            body.textContent = '⏳ چاوەڕێبە...';
+
+            const history = getReportCheckpointHistory();
+            const currentCp = getReportCheckpoint();
+            // شیفتی ئێستا (لە دوایین سڤرکردنەوەوە هەتا ئێستا) وەک یەکەم دانە زیاد بکە
+            const periods = [
+                { from: currentCp || null, to: null, label: '🟢 شیفتی ئێستا' },
+                ...[...history].reverse().map((h, i) => ({ from: h.from, to: h.to, label: `شیفتی پێش ئەوە (#${history.length - i})` }))
+            ];
+
+            let html = '';
+            for (const p of periods) {
+                const startTime = p.from ? new Date(p.from).getTime() : 0;
+                const endTime = p.to ? new Date(p.to).getTime() : Date.now();
+                const { total, count, adjustmentAmount } = await computePeriodTotal(startTime, endTime, p.from || null);
+                const fromLabel = p.from ? new Date(p.from).toLocaleString('ckb') : 'سەرەتا';
+                const toLabel = p.to ? new Date(p.to).toLocaleString('ckb') : 'ئێستا';
+                const adjLine = adjustmentAmount
+                    ? `<div style="color:${adjustmentAmount > 0 ? 'var(--green)' : 'var(--red)'}; font-size:12px; margin-top:2px;">${adjustmentAmount > 0 ? '⬅️ زیادکراو' : '➡️ گوێزراوەتەوە'}: ${Math.abs(adjustmentAmount).toLocaleString()} د.ع (گۆڕانکاری دەستی)</div>`
+                    : '';
+                html += `<div style="padding:10px; border:1px solid var(--border); border-radius:8px; margin-bottom:8px;">
+                    <div style="font-weight:700; color:var(--amber);">${p.label}</div>
+                    <div style="color:var(--text2); font-size:12px;">${fromLabel} ← ${toLabel}</div>
+                    <div style="margin-top:4px;">💰 <b>${total.toLocaleString()} د.ع</b> (${count} پسوولە)</div>
+                    ${adjLine}
+                </div>`;
+            }
+            body.innerHTML = html || 'هیچ مێژوویەک نییە.';
         }
 
         function updateReportCheckpointLabel() {
