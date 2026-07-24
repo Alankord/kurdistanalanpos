@@ -474,6 +474,15 @@
         :root {
             --num-bold-weight: 800;  /* ئاستی تووخبوون: بەپێی ژمارە دیاردەکرێت (٥٠٠-٩٠٠) */
             --num-bold-size: 105%;   /* ئاستی گەورەیی: بەپێی ژمارە دیاردەکرێت (١٠٠%-١٣٠%) */
+
+            /* ڕەنگی هەر جۆرە ژمارەیەک - دەستکاریکراو لە ڕێکخستنەکاندا */
+            --num-color-price: #10B981;
+            --num-color-cart-price: #3B82F6;
+            --num-color-qty: #8B5CF6;
+            --num-color-total: #10B981;
+            --num-color-subtotal: #3B82F6;
+            --num-color-finaltotal: #F59E0B;
+            --num-color-stat: #F59E0B;
         }
 
         /* سادە: هەموو ژمارەکان بێ ڕەنگی تایبەت و بێ توخی زیادە */
@@ -493,32 +502,50 @@
             color: var(--text) !important;
         }
 
-        /* توخ: ئاستی توخبوون و قەبارە بەپێی ژمارەیەکی هەڵبژێردراو دیاردەکرێت (بڕوانە ڕێکخستنەکان) */
-        body.num-style-bold .product-price,
-        body.num-style-bold .cart-table td.num-price,
-        body.num-style-bold .cart-table td.num-qty input[type="number"],
-        body.num-style-bold .cart-table td.num-total,
-        body.num-style-bold #subTotal,
-        body.num-style-bold #finalTotal,
+        /* توخ: ئاستی توخبوون/قەبارە بەپێی ژمارە + ڕەنگی هەر جۆرە (هەروەک شێوازی ڕەنگ) */
+        body.num-style-bold .product-price {
+            font-weight: var(--num-bold-weight) !important; font-size: var(--num-bold-size) !important;
+            color: var(--num-color-price) !important;
+        }
+        body.num-style-bold .cart-table td.num-price {
+            font-weight: var(--num-bold-weight) !important; font-size: var(--num-bold-size) !important;
+            color: var(--num-color-cart-price) !important;
+        }
+        body.num-style-bold .cart-table td.num-qty input[type="number"] {
+            font-weight: var(--num-bold-weight) !important; font-size: var(--num-bold-size) !important;
+            color: var(--num-color-qty) !important;
+        }
+        body.num-style-bold .cart-table td.num-total {
+            font-weight: var(--num-bold-weight) !important; font-size: var(--num-bold-size) !important;
+            color: var(--num-color-total) !important;
+        }
+        body.num-style-bold #subTotal {
+            font-weight: var(--num-bold-weight) !important; font-size: var(--num-bold-size) !important;
+            color: var(--num-color-subtotal) !important;
+        }
+        body.num-style-bold #finalTotal {
+            font-weight: var(--num-bold-weight) !important; font-size: var(--num-bold-size) !important;
+            color: var(--num-color-finaltotal) !important;
+        }
         body.num-style-bold .stat-card h3 {
-            font-weight: var(--num-bold-weight) !important;
-            font-size: var(--num-bold-size) !important;
-            color: var(--text) !important;
+            font-weight: var(--num-bold-weight) !important; font-size: var(--num-bold-size) !important;
+            color: var(--num-color-stat) !important;
         }
         body.num-style-bold .total-row.final {
             font-weight: var(--num-bold-weight) !important;
             font-size: calc(22px * (var(--num-bold-size) / 100%)) !important;
+            color: var(--num-color-finaltotal) !important;
         }
 
-        /* ڕەنگ: هەر جۆرە ژمارەیەک ڕەنگی تایبەتی خۆی وەردەگرێت */
-        body.num-style-colored .product-price { color: var(--green) !important; font-weight: 700 !important; }
-        body.num-style-colored .cart-table td.num-price { color: var(--blue) !important; font-weight: 700 !important; }
-        body.num-style-colored .cart-table td.num-qty input[type="number"] { color: var(--purple) !important; font-weight: 700 !important; }
-        body.num-style-colored .cart-table td.num-total { color: var(--green) !important; font-weight: 700 !important; }
-        body.num-style-colored #subTotal { color: var(--blue) !important; font-weight: 700 !important; }
-        body.num-style-colored #finalTotal { color: var(--amber) !important; font-weight: 800 !important; }
-        body.num-style-colored .total-row.final { color: var(--amber) !important; }
-        body.num-style-colored .stat-card h3 { color: var(--amber) !important; }
+        /* ڕەنگ: هەر جۆرە ژمارەیەک ڕەنگی تایبەتی خۆی وەردەگرێت (هەمان ڕەنگی دەستکاریکراو) */
+        body.num-style-colored .product-price { color: var(--num-color-price) !important; font-weight: 700 !important; }
+        body.num-style-colored .cart-table td.num-price { color: var(--num-color-cart-price) !important; font-weight: 700 !important; }
+        body.num-style-colored .cart-table td.num-qty input[type="number"] { color: var(--num-color-qty) !important; font-weight: 700 !important; }
+        body.num-style-colored .cart-table td.num-total { color: var(--num-color-total) !important; font-weight: 700 !important; }
+        body.num-style-colored #subTotal { color: var(--num-color-subtotal) !important; font-weight: 700 !important; }
+        body.num-style-colored #finalTotal { color: var(--num-color-finaltotal) !important; font-weight: 800 !important; }
+        body.num-style-colored .total-row.final { color: var(--num-color-finaltotal) !important; }
+        body.num-style-colored .stat-card h3 { color: var(--num-color-stat) !important; }
 
         /* ===== BUTTONS ===== */
         .btn {
@@ -2193,6 +2220,42 @@
                                        style="width:100%;" oninput="onNumberBoldLevelChange()">
                             </div>
                         </div>
+                    </div>
+
+                    <div class="card" id="numberColorsCard">
+                        <div class="card-header">🎨 ڕەنگی ژمارەکان (دەستکاری)</div>
+                        <p style="color: var(--text3); font-size:12px; margin: 0 0 10px;">ڕەنگی هەر جۆرە ژمارەیەک بە دڵی خۆت هەڵبژێرە (سور، کەسک، یان هەر ڕەنگێکی تر). کاریگەرە لەسەر شێوازی "تووخ" و "ڕەنگ" هەردووکیان.</p>
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px 14px;">
+                            <div class="form-group" style="margin-bottom:0;">
+                                <label style="font-size:12px;">🏷️ نرخی کاڵا (لیستی کاڵا)</label>
+                                <input type="color" id="setColorPrice" style="width:100%; height:36px; padding:2px; border-radius:6px; border:1px solid var(--border); background:var(--bg);" onchange="saveNumberColorsFn()">
+                            </div>
+                            <div class="form-group" style="margin-bottom:0;">
+                                <label style="font-size:12px;">🛒 نرخ لە سەبەتەدا</label>
+                                <input type="color" id="setColorCartPrice" style="width:100%; height:36px; padding:2px; border-radius:6px; border:1px solid var(--border); background:var(--bg);" onchange="saveNumberColorsFn()">
+                            </div>
+                            <div class="form-group" style="margin-bottom:0;">
+                                <label style="font-size:12px;">🔢 دانە (لە سەبەتەدا)</label>
+                                <input type="color" id="setColorQty" style="width:100%; height:36px; padding:2px; border-radius:6px; border:1px solid var(--border); background:var(--bg);" onchange="saveNumberColorsFn()">
+                            </div>
+                            <div class="form-group" style="margin-bottom:0;">
+                                <label style="font-size:12px;">Σ کۆی ڕیز (سەبەتە)</label>
+                                <input type="color" id="setColorTotal" style="width:100%; height:36px; padding:2px; border-radius:6px; border:1px solid var(--border); background:var(--bg);" onchange="saveNumberColorsFn()">
+                            </div>
+                            <div class="form-group" style="margin-bottom:0;">
+                                <label style="font-size:12px;">💰 کۆی گشتی (پێش داشکاندن)</label>
+                                <input type="color" id="setColorSubtotal" style="width:100%; height:36px; padding:2px; border-radius:6px; border:1px solid var(--border); background:var(--bg);" onchange="saveNumberColorsFn()">
+                            </div>
+                            <div class="form-group" style="margin-bottom:0;">
+                                <label style="font-size:12px;">🏁 کۆتایی وەرگیراو</label>
+                                <input type="color" id="setColorFinalTotal" style="width:100%; height:36px; padding:2px; border-radius:6px; border:1px solid var(--border); background:var(--bg);" onchange="saveNumberColorsFn()">
+                            </div>
+                            <div class="form-group" style="margin-bottom:0; grid-column: 1 / -1;">
+                                <label style="font-size:12px;">📊 ژمارەکانی کارتی ستات (ڕاپۆرت)</label>
+                                <input type="color" id="setColorStat" style="width:100%; height:36px; padding:2px; border-radius:6px; border:1px solid var(--border); background:var(--bg);" onchange="saveNumberColorsFn()">
+                            </div>
+                        </div>
+                        <button class="btn btn-warning" style="width:100%; margin-top:12px;" onclick="resetNumberColorsFn()">↩️ گەڕانەوە بۆ ڕەنگی بنەڕەت</button>
                     </div>
 
                     <button class="btn btn-complete-sale" style="width:100%;" onclick="saveReceiptSettingsFn()">💾 پاشەکەوتکردنی ڕێکخستنەکانی پسوولە</button>
@@ -4308,7 +4371,10 @@
             let filtered;
             if (searchTerm === '') {
                 // هیچ گەران نییە: تەنیا کاڵا دیارکراوەکان (⭐) پیشان بدە
-                filtered = products.filter(p => p.quickAccess === true);
+                // ڕیزکردن بەپێی ڕیزبەندی دەستی (quickOrder) کە خۆت دیاریت دەکەیت لە بەشی کاڵاکاندا
+                filtered = products
+                    .filter(p => p.quickAccess === true)
+                    .sort((a, b) => (a.quickOrder || 9999) - (b.quickOrder || 9999));
             } else {
                 // گەران هەیە: بەکارهێنانی ئینگێکسی گەڕانی خێرا (fastSearchProducts) لە جیاتی
                 // گەڕانی تەواو بەسەر هەموو کاڵاکانەوە بۆ هەر پیتێک کە دەنووسرێت
@@ -4325,8 +4391,10 @@
             grid.innerHTML = filtered.map(p => {
                 const stockClass = p.quantity <= 0 ? 'out' : (p.quantity <= p.alert ? 'low' : '');
                 const pkgSize = p.packageSize || 0;
+                // ڕەنگی کاڵا (ئەگەر دیاریکرابێت) وەک هێڵێکی لای ڕاست، بۆ جیاکردنەوەی کاڵاکان بە ڕەنگ
+                const colorStyle = p.color ? `border-right: 4px solid ${p.color};` : '';
                 return `
-                    <button class="product-btn" 
+                    <button class="product-btn" style="${colorStyle}"
                             onclick="addToCart('${p.id}')">
                         <span class="product-stock ${stockClass}">${p.quantity}</span>
                         <div class="product-name">${p.name}</div>
@@ -4862,6 +4930,8 @@
                     const deduct = item._pkgSize ? (item.quantity * item._pkgSize) : item.quantity;
                     product.quantity -= deduct;
                     product.lastChangeType = 'sale';
+                    // زیادکردنی ژمارەی فرۆشراو — بۆ ڕیزکردنی کاڵا لە لیستی سەرەکیدا بەپێی زۆرترین فرۆش
+                    product.soldCount = (product.soldCount || 0) + deduct;
                     changedProducts.push(product);
                 }
             }
@@ -5184,6 +5254,8 @@
             const levelLabel = document.getElementById('numberBoldLevelLabel');
             if (levelLabel) levelLabel.textContent = s.boldLevel;
             toggleNumberBoldLevelVisibility(s.style);
+            toggleNumberColorsVisibility(s.style);
+            loadNumberColorsUI();
         }
 
         // خانەی هەڵبژاردنی ئاستی تووخبوون تەنیا کاتێک شێوازی "تووخ" هەڵبژێردراوە پیشان دەدرێت
@@ -5192,9 +5264,18 @@
             if (wrap) wrap.style.display = (style === 'bold') ? 'block' : 'none';
         }
 
+        // خانەی هەڵبژاردنی ڕەنگی دەستکاری تەنیا کاتێک شێوازی "تووخ" یان "ڕەنگ" هەڵبژێردراوە پیشان دەدرێت
+        // (لە شێوازی "سادە"دا هیچ ڕەنگێکی تایبەت بەکارناهێنرێت)
+        function toggleNumberColorsVisibility(style) {
+            const card = document.getElementById('numberColorsCard');
+            if (card) card.style.display = (style === 'simple') ? 'none' : 'block';
+        }
+
         function onNumberStyleChange() {
             const styleEl = document.getElementById('setNumberStyle');
-            toggleNumberBoldLevelVisibility(styleEl ? styleEl.value : 'colored');
+            const val = styleEl ? styleEl.value : 'colored';
+            toggleNumberBoldLevelVisibility(val);
+            toggleNumberColorsVisibility(val);
             saveNumberDisplayStyleFn();
         }
 
@@ -5212,6 +5293,73 @@
             safeSetLocalStorage('numberDisplaySettings', JSON.stringify(settings));
             applyNumberDisplayStyle(settings);
             showToast('✅ شێوازی نیشاندانی ژمارەکان گۆڕدرا');
+        }
+
+        // ----- ڕەنگی دەستکاریکراوی هەر جۆرە ژمارەیەک (سور، کەسک، یان هەر ڕەنگێکی تر) -----
+        const NUM_COLOR_DEFAULTS = {
+            price:      '#10B981', // نرخی کاڵا لە لیستی کاڵاکاندا
+            cartPrice:  '#3B82F6', // نرخی یەک دانە لە سەبەتەدا
+            qty:        '#8B5CF6', // دانەی هەر کاڵایەک لە سەبەتەدا
+            total:      '#10B981', // کۆی هەر ڕیزێک لە سەبەتەدا
+            subtotal:   '#3B82F6', // کۆی گشتی پێش داشکاندن
+            finalTotal: '#F59E0B', // کۆتایی وەرگیراو
+            stat:       '#F59E0B'  // ژمارەکانی کارتی ستات (لە ڕاپۆرت و کارتەکاندا)
+        };
+
+        function getNumberColors() {
+            try {
+                const saved = JSON.parse(localStorage.getItem('numberColors') || 'null') || {};
+                return Object.assign({}, NUM_COLOR_DEFAULTS, saved);
+            } catch (e) {
+                return Object.assign({}, NUM_COLOR_DEFAULTS);
+            }
+        }
+
+        function applyNumberColors(colorsIn) {
+            const c = colorsIn || getNumberColors();
+            const root = document.documentElement;
+            root.style.setProperty('--num-color-price', c.price);
+            root.style.setProperty('--num-color-cart-price', c.cartPrice);
+            root.style.setProperty('--num-color-qty', c.qty);
+            root.style.setProperty('--num-color-total', c.total);
+            root.style.setProperty('--num-color-subtotal', c.subtotal);
+            root.style.setProperty('--num-color-finaltotal', c.finalTotal);
+            root.style.setProperty('--num-color-stat', c.stat);
+        }
+
+        function loadNumberColorsUI() {
+            const c = getNumberColors();
+            const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+            set('setColorPrice', c.price);
+            set('setColorCartPrice', c.cartPrice);
+            set('setColorQty', c.qty);
+            set('setColorTotal', c.total);
+            set('setColorSubtotal', c.subtotal);
+            set('setColorFinalTotal', c.finalTotal);
+            set('setColorStat', c.stat);
+        }
+
+        function saveNumberColorsFn() {
+            const val = (id) => (document.getElementById(id) || {}).value;
+            const colors = {
+                price: val('setColorPrice') || NUM_COLOR_DEFAULTS.price,
+                cartPrice: val('setColorCartPrice') || NUM_COLOR_DEFAULTS.cartPrice,
+                qty: val('setColorQty') || NUM_COLOR_DEFAULTS.qty,
+                total: val('setColorTotal') || NUM_COLOR_DEFAULTS.total,
+                subtotal: val('setColorSubtotal') || NUM_COLOR_DEFAULTS.subtotal,
+                finalTotal: val('setColorFinalTotal') || NUM_COLOR_DEFAULTS.finalTotal,
+                stat: val('setColorStat') || NUM_COLOR_DEFAULTS.stat
+            };
+            safeSetLocalStorage('numberColors', JSON.stringify(colors));
+            applyNumberColors(colors);
+            showToast('✅ ڕەنگی ژمارەکان گۆڕدرا');
+        }
+
+        function resetNumberColorsFn() {
+            localStorage.removeItem('numberColors');
+            applyNumberColors(NUM_COLOR_DEFAULTS);
+            loadNumberColorsUI();
+            showToast('↩️ ڕەنگی ژمارەکان گەڕایەوە بۆ بنەڕەت');
         }
 
         // ----- بارکردنی وێنەی لۆگۆ/QR: وێنەکە بچووک دەکرێتەوە پێش پاشەکەوتکردن -----
@@ -5502,7 +5650,7 @@
                 return `
                 <tr class="${rowClass}">
                     <td>${p.barcode}${(Array.isArray(p.extraBarcodes) && p.extraBarcodes.length) ? ` <span style="color:#F59E0B; font-size:11px;" title="${p.extraBarcodes.join(', ')}">(+${p.extraBarcodes.length})</span>` : ''}</td>
-                    <td>${p.quickAccess ? '⭐ ' : ''}${p.name}${p.packageSize >= 2 ? ` <span style="background:#8B5CF6;color:var(--text);border-radius:8px;padding:2px 6px;font-size:11px;">📦${p.packageSize}</span>` : ''}${isExpired ? ' <span style="color:#dc3545;font-weight:bold;font-size:11px;">⚠️ بەسەرچوو</span>' : ''}</td>
+                    <td>${p.color ? `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${p.color};margin-left:5px;vertical-align:middle;"></span>` : ''}${p.quickAccess ? '⭐ ' : ''}${p.name}${p.packageSize >= 2 ? ` <span style="background:#8B5CF6;color:var(--text);border-radius:8px;padding:2px 6px;font-size:11px;">📦${p.packageSize}</span>` : ''}${isExpired ? ' <span style="color:#dc3545;font-weight:bold;font-size:11px;">⚠️ بەسەرچوو</span>' : ''}</td>
                     <td>${p.price.toLocaleString()}</td>
                     <td>${p.cost.toLocaleString()}</td>
                     <td>
@@ -5517,6 +5665,12 @@
                     <td>
                         <button class="btn ${p.quickAccess ? 'btn-warning' : ''}" style="width: auto; padding: 5px 10px; font-size: 12px; margin: 2px; ${p.quickAccess ? '' : 'background:var(--surface3); color:var(--text2);'}" 
                                 onclick="toggleQuickAccess('${p.id}')" title="${p.quickAccess ? 'لابردن لە لیستی فرۆشتنی سەرەکی' : 'زیادکردن بۆ لیستی فرۆشتنی سەرەکی'}">${p.quickAccess ? '⭐' : '☆'}</button>
+                        ${p.quickAccess ? `
+                        <button class="btn" style="width: auto; padding: 5px 8px; font-size: 12px; margin: 2px; background:var(--surface3); color:var(--text2);" 
+                                onclick="moveQuickOrder('${p.id}', 'up')" title="بردنە سەرەوە لە لیستی سەرەکیدا">⬆️</button>
+                        <button class="btn" style="width: auto; padding: 5px 8px; font-size: 12px; margin: 2px; background:var(--surface3); color:var(--text2);" 
+                                onclick="moveQuickOrder('${p.id}', 'down')" title="بردنە خوارەوە لە لیستی سەرەکیدا">⬇️</button>
+                        ` : ''}
                         <button class="btn btn-warning" style="width: auto; padding: 5px 10px; font-size: 12px; margin: 2px;" 
                                 onclick="editProductPrice('${p.id}')">💲</button>
                         <button class="btn btn-info" style="width: auto; padding: 5px 10px; font-size: 12px; margin: 2px;" 
@@ -5724,6 +5878,8 @@
 
             const newExpiry = prompt('📅 بەرواری بەسەرچوون (فۆرمات: YYYY-MM-DD، ئەگەر نییە بەتاڵ بهێڵەرەوە):', product.expiryDate || '');
 
+            const newColor = prompt('🎨 ڕەنگی کاڵا (کۆدی hex وەکوو #22c55e، بۆ لابردنی ڕەنگ بەتاڵی بهێڵەوە):', product.color || '');
+
             product.name = newName || product.name;
             product.price = parseFloat(newPrice) || product.price;
             product.cost = parseFloat(newCost) || product.cost;
@@ -5736,6 +5892,10 @@
             }
             if (newExpiry !== null) {
                 product.expiryDate = newExpiry.trim();
+            }
+            if (newColor !== null) {
+                const trimmedColor = newColor.trim();
+                product.color = trimmedColor === '' ? '' : trimmedColor;
             }
 
             await saveProduct(product);
@@ -5751,12 +5911,41 @@
             if (!product) return;
 
             product.quickAccess = !product.quickAccess;
+            if (product.quickAccess) {
+                // کاڵای نوێ دەچێتە دواوەی هەموو کاڵا هەبووەکان لە لیستی سەرەکیدا
+                const maxOrder = Math.max(0, ...products.filter(p => p.quickAccess && p.id !== product.id).map(p => p.quickOrder || 0));
+                product.quickOrder = maxOrder + 1;
+            }
             await saveProduct(product);
             await loadProducts(document.getElementById('productsSearchBox')?.value || '');
             await displayProducts();
             showToast(product.quickAccess
                 ? `⭐ "${product.name}" زیادکرا بۆ لیستی فرۆشتنی سەرەکی`
                 : `☆ "${product.name}" لابرا لە لیستی فرۆشتنی سەرەکی`);
+        }
+
+        // گواستنەوەی شوێنی کاڵا بۆ سەرەوە/خوارەوە لە ڕیزبەندی لیستی فرۆشتنی سەرەکیدا (دەستی)
+        async function moveQuickOrder(id, direction) {
+            const products = getProductsCache();
+            const quickList = products
+                .filter(p => p.quickAccess === true)
+                .sort((a, b) => (a.quickOrder || 0) - (b.quickOrder || 0));
+
+            const idx = quickList.findIndex(p => String(p.id) === String(id));
+            if (idx < 0) return;
+            const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+            if (swapIdx < 0 || swapIdx >= quickList.length) return;
+
+            // یەکسانکردنەوەی ڕیزبەندی (نۆرمالایز) بۆ دڵنیابوون لە جیاوازیی هەر کاڵایەک، پاشان گۆڕینەوەی شوێن
+            quickList.forEach((p, i) => { p.quickOrder = i + 1; });
+            const tmp = quickList[idx].quickOrder;
+            quickList[idx].quickOrder = quickList[swapIdx].quickOrder;
+            quickList[swapIdx].quickOrder = tmp;
+
+            await saveProduct(quickList[idx]);
+            await saveProduct(quickList[swapIdx]);
+            await loadProducts(document.getElementById('productsSearchBox')?.value || '');
+            await displayProducts();
         }
 
         // گۆڕینی خێرای نرخی تەنها یەک کاڵا (بێ پرسیارکردنی ناو و ئاستی ئاگادارکردنەوە)
@@ -7731,6 +7920,7 @@
             applyTheme(localStorage.getItem('theme') || 'dark');
             applyPosLayoutSettings();
             applyNumberDisplayStyle();
+            applyNumberColors();
             const barcodeInput = document.getElementById('barcodeInput');
             
             if (barcodeInput) {
