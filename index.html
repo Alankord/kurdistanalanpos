@@ -470,6 +470,56 @@
             font-family: var(--font-body);
         }
 
+        /* ===== شێوازی نیشاندانی ژمارەکان (گشتی: کاڵا / سەبەتە / کۆتایی) ===== */
+        :root {
+            --num-bold-weight: 800;  /* ئاستی تووخبوون: بەپێی ژمارە دیاردەکرێت (٥٠٠-٩٠٠) */
+            --num-bold-size: 105%;   /* ئاستی گەورەیی: بەپێی ژمارە دیاردەکرێت (١٠٠%-١٣٠%) */
+        }
+
+        /* سادە: هەموو ژمارەکان بێ ڕەنگی تایبەت و بێ توخی زیادە */
+        body.num-style-simple .product-price,
+        body.num-style-simple .cart-table td.num-price,
+        body.num-style-simple .cart-table td.num-qty input[type="number"],
+        body.num-style-simple .cart-table td.num-total,
+        body.num-style-simple #subTotal,
+        body.num-style-simple #finalTotal,
+        body.num-style-simple .stat-card h3 {
+            font-weight: 400 !important;
+            font-size: 100% !important;
+            color: var(--text) !important;
+        }
+        body.num-style-simple .total-row.final {
+            font-weight: 600 !important;
+            color: var(--text) !important;
+        }
+
+        /* توخ: ئاستی توخبوون و قەبارە بەپێی ژمارەیەکی هەڵبژێردراو دیاردەکرێت (بڕوانە ڕێکخستنەکان) */
+        body.num-style-bold .product-price,
+        body.num-style-bold .cart-table td.num-price,
+        body.num-style-bold .cart-table td.num-qty input[type="number"],
+        body.num-style-bold .cart-table td.num-total,
+        body.num-style-bold #subTotal,
+        body.num-style-bold #finalTotal,
+        body.num-style-bold .stat-card h3 {
+            font-weight: var(--num-bold-weight) !important;
+            font-size: var(--num-bold-size) !important;
+            color: var(--text) !important;
+        }
+        body.num-style-bold .total-row.final {
+            font-weight: var(--num-bold-weight) !important;
+            font-size: calc(22px * (var(--num-bold-size) / 100%)) !important;
+        }
+
+        /* ڕەنگ: هەر جۆرە ژمارەیەک ڕەنگی تایبەتی خۆی وەردەگرێت */
+        body.num-style-colored .product-price { color: var(--green) !important; font-weight: 700 !important; }
+        body.num-style-colored .cart-table td.num-price { color: var(--blue) !important; font-weight: 700 !important; }
+        body.num-style-colored .cart-table td.num-qty input[type="number"] { color: var(--purple) !important; font-weight: 700 !important; }
+        body.num-style-colored .cart-table td.num-total { color: var(--green) !important; font-weight: 700 !important; }
+        body.num-style-colored #subTotal { color: var(--blue) !important; font-weight: 700 !important; }
+        body.num-style-colored #finalTotal { color: var(--amber) !important; font-weight: 800 !important; }
+        body.num-style-colored .total-row.final { color: var(--amber) !important; }
+        body.num-style-colored .stat-card h3 { color: var(--amber) !important; }
+
         /* ===== BUTTONS ===== */
         .btn {
             padding: 11px 20px;
@@ -2121,6 +2171,26 @@
                                     <option value="2">دووەم</option>
                                     <option value="3" selected>سێیەم (خوارەوە)</option>
                                 </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">🔢 شێوازی نیشاندانی ژمارەکان (گشتی)</div>
+                        <p style="color: var(--text3); font-size:12px; margin: 0 0 10px;">کاریگەری لەسەر نرخی کاڵا، ڕیزەکانی سەبەتە، کۆی گشتی و کۆتایی — لە هەموو شوێنێکدا.</p>
+                        <div style="padding: 4px 0;">
+                            <div class="form-group">
+                                <label>شێوازی نیشاندان:</label>
+                                <select id="setNumberStyle" class="form-control" onchange="onNumberStyleChange()">
+                                    <option value="bold">💪 تووخ (ئاستی جیاواز — بژمارە)</option>
+                                    <option value="simple">▫️ سادە (بێ ڕەنگی تایبەت)</option>
+                                    <option value="colored" selected>🎨 ڕەنگ (هەر جۆرە ژمارەیەک ڕەنگی خۆی)</option>
+                                </select>
+                            </div>
+                            <div class="form-group" id="numberBoldLevelWrap" style="display:none;">
+                                <label>ئاستی تووخبوون و گەورەیی (١ کەم ⟶ ٥ زۆر): <strong id="numberBoldLevelLabel">3</strong></label>
+                                <input type="range" id="setNumberBoldLevel" min="1" max="5" step="1" value="3"
+                                       style="width:100%;" oninput="onNumberBoldLevelChange()">
                             </div>
                         </div>
                     </div>
@@ -4582,8 +4652,8 @@
                                 <small style="color:${isReturn ? 'var(--red)' : (isPkg ? '#8B5CF6' : '#F59E0B')};">(${unitLabel})${isReturn ? ' ↩️ گەڕاندنەوە' : ''}</small>
                                 ${switchBtn}
                             </td>
-                            <td>${item.price.toLocaleString()}</td>
-                            <td>
+                            <td class="num-price">${item.price.toLocaleString()}</td>
+                            <td class="num-qty">
                                 <div style="display:flex; align-items:center; gap:4px;">
                                     <button type="button" onclick="stepQuantity(${index}, -1)"
                                         style="width:26px;height:26px;flex-shrink:0;border:none;border-radius:6px;background:var(--red-dim);color:var(--red);font-weight:700;cursor:pointer;font-size:15px;line-height:1;">−</button>
@@ -4602,7 +4672,7 @@
                                     <span style="font-size:11px;color:var(--text3);">د.ع</span>
                                 </div>` : ''}
                             </td>
-                            <td style="${isReturn ? 'color:var(--red);font-weight:700;' : ''}">${total.toLocaleString()}</td>
+                            <td class="num-total" style="${isReturn ? 'color:var(--red);font-weight:700;' : ''}">${total.toLocaleString()}</td>
                             <td>
                                 <button class="btn-remove" onclick="removeFromCart(${index})">✕</button>
                             </td>
@@ -5070,6 +5140,78 @@
             if (scannerEl) scannerEl.style.order = wOrder.scanner;
             if (productsEl) productsEl.style.order = wOrder.products;
             if (cardsEl) cardsEl.style.order = wOrder.cards;
+        }
+
+        // ==================== شێوازی نیشاندانی ژمارەکان (گشتی) ====================
+        // کاریگەری لەسەر: نرخی کاڵا/کارت لە خشتەکاندا، ڕیزەکانی سەبەتە (نرخ/دانە/کۆ)، کۆی گشتی و کۆتایی
+        // ئاستی "تووخ" وەک ژمارەیەک (١ تا ٥) هەڵدەبژێردرێت، نەک تەنیا چالاک/ناچالاک
+        const NUM_BOLD_LEVEL_MAP = {
+            1: { weight: 500, size: 100 },
+            2: { weight: 600, size: 103 },
+            3: { weight: 700, size: 108 },
+            4: { weight: 800, size: 115 },
+            5: { weight: 900, size: 124 }
+        };
+
+        function getNumberDisplaySettings() {
+            try {
+                const saved = JSON.parse(localStorage.getItem('numberDisplaySettings') || 'null') || {};
+                const style = (saved.style === 'bold' || saved.style === 'simple' || saved.style === 'colored') ? saved.style : 'colored';
+                let level = parseInt(saved.boldLevel);
+                if (!(level >= 1 && level <= 5)) level = 3;
+                return { style, boldLevel: level };
+            } catch (e) {
+                return { style: 'colored', boldLevel: 3 };
+            }
+        }
+
+        function applyNumberDisplayStyle(settingsIn) {
+            const settings = settingsIn || getNumberDisplaySettings();
+            document.body.classList.remove('num-style-bold', 'num-style-simple', 'num-style-colored');
+            document.body.classList.add('num-style-' + settings.style);
+
+            const level = NUM_BOLD_LEVEL_MAP[settings.boldLevel] || NUM_BOLD_LEVEL_MAP[3];
+            document.body.style.setProperty('--num-bold-weight', level.weight);
+            document.body.style.setProperty('--num-bold-size', level.size + '%');
+        }
+
+        function loadNumberDisplayStyleUI() {
+            const s = getNumberDisplaySettings();
+            const styleEl = document.getElementById('setNumberStyle');
+            if (styleEl) styleEl.value = s.style;
+            const levelEl = document.getElementById('setNumberBoldLevel');
+            if (levelEl) levelEl.value = s.boldLevel;
+            const levelLabel = document.getElementById('numberBoldLevelLabel');
+            if (levelLabel) levelLabel.textContent = s.boldLevel;
+            toggleNumberBoldLevelVisibility(s.style);
+        }
+
+        // خانەی هەڵبژاردنی ئاستی تووخبوون تەنیا کاتێک شێوازی "تووخ" هەڵبژێردراوە پیشان دەدرێت
+        function toggleNumberBoldLevelVisibility(style) {
+            const wrap = document.getElementById('numberBoldLevelWrap');
+            if (wrap) wrap.style.display = (style === 'bold') ? 'block' : 'none';
+        }
+
+        function onNumberStyleChange() {
+            const styleEl = document.getElementById('setNumberStyle');
+            toggleNumberBoldLevelVisibility(styleEl ? styleEl.value : 'colored');
+            saveNumberDisplayStyleFn();
+        }
+
+        function onNumberBoldLevelChange() {
+            const levelEl = document.getElementById('setNumberBoldLevel');
+            const levelLabel = document.getElementById('numberBoldLevelLabel');
+            if (levelLabel && levelEl) levelLabel.textContent = levelEl.value;
+            saveNumberDisplayStyleFn();
+        }
+
+        function saveNumberDisplayStyleFn() {
+            const style = (document.getElementById('setNumberStyle') || {}).value || 'colored';
+            const boldLevel = parseInt((document.getElementById('setNumberBoldLevel') || {}).value) || 3;
+            const settings = { style, boldLevel };
+            safeSetLocalStorage('numberDisplaySettings', JSON.stringify(settings));
+            applyNumberDisplayStyle(settings);
+            showToast('✅ شێوازی نیشاندانی ژمارەکان گۆڕدرا');
         }
 
         // ----- بارکردنی وێنەی لۆگۆ/QR: وێنەکە بچووک دەکرێتەوە پێش پاشەکەوتکردن -----
@@ -7588,6 +7730,7 @@
         document.addEventListener('DOMContentLoaded', async function() {
             applyTheme(localStorage.getItem('theme') || 'dark');
             applyPosLayoutSettings();
+            applyNumberDisplayStyle();
             const barcodeInput = document.getElementById('barcodeInput');
             
             if (barcodeInput) {
@@ -7794,6 +7937,7 @@
                 } else if (sectionName === 'settings') {
                     loadReceiptSettingsUI();
                     loadPosLayoutSettingsUI();
+                    loadNumberDisplayStyleUI();
                 }
             } catch (error) {
                 console.error(`Error loading section ${sectionName}:`, error);
