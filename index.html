@@ -1591,6 +1591,9 @@
                         <option value="low">کەمبوونەوە (ئاگاداری)</option>
                         <option value="out">تەواوبوو</option>
                     </select>
+                    <select id="invCompanyFilterSelect" onchange="loadProducts(document.getElementById('productsSearchBox').value)">
+                        <option value="all">🏢 هەموو شریکەکان</option>
+                    </select>
                     <select id="invSortSelect" onchange="loadProducts(document.getElementById('productsSearchBox').value)">
                         <option value="name">ڕیزکردن بە ناو</option>
                         <option value="qty-asc">بڕ: کەمترین یەکەم</option>
@@ -1603,6 +1606,8 @@
                     <button class="import-btn" onclick="openImportModal('products')">⬆️ کرنا تێدا CSV</button>
 
                 </div>
+
+                <div id="companyFilterSummary" style="display:none; margin-bottom:14px; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 16px; font-size:13px; color: var(--text2); gap:18px; flex-wrap:wrap; align-items:center;"></div>
 
                 <!-- فۆڕمی زیادکردنی کاڵا -->
                 <div id="addProductForm" style="display: none; margin-bottom: 20px; background: var(--surface2); padding: 20px; border-radius: 10px;">
@@ -1628,6 +1633,13 @@
                         <div class="form-group">
                             <label>نرخی کڕین:</label>
                             <input type="number" id="productCost" class="form-control" placeholder="0">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>🏢 شریک / کۆمپانیا:</label>
+                            <input type="text" id="productCompany" class="form-control" list="companyDatalist" placeholder="ناوی شریک یان کۆمپانیا...">
+                            <datalist id="companyDatalist"></datalist>
                         </div>
                     </div>
                     <div class="form-row">
@@ -1691,6 +1703,7 @@
                             <tr>
                                 <th>بارکۆد</th>
                                 <th>ناو</th>
+                                <th>🏢 شریک</th>
                                 <th>نرخی فرۆشتن</th>
                                 <th>نرخی کڕین</th>
                                 <th>بڕ لە کۆگا</th>
@@ -1704,7 +1717,7 @@
                         </thead>
                         <tbody id="productsTableBody">
                             <tr>
-                                <td colspan="11" style="text-align: center; color: var(--text3);">کاڵاکان باردەکرێن...</td>
+                                <td colspan="12" style="text-align: center; color: var(--text3);">کاڵاکان باردەکرێن...</td>
                             </tr>
                         </tbody>
                     </table>
@@ -5556,6 +5569,36 @@
             loadProducts(document.getElementById('productsSearchBox')?.value || '');
         }
 
+        // ڕەنگی جیاواز و نەگۆڕ بۆ هەر شریک/کۆمپانیایەک (بۆ ئاسانکردنی جیاکردنەوەی چاوی کاڵا لە یەک شریک)
+        const _companyColorPalette = ['#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EF4444', '#06B6D4', '#EAB308', '#EC4899', '#14B8A6', '#F97316'];
+        function getCompanyColor(name) {
+            if (!name) return '#6E7681';
+            let hash = 0;
+            for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+            return _companyColorPalette[hash % _companyColorPalette.length];
+        }
+
+        let _lastCompanyOptionsSignature = null;
+        function populateCompanyOptions(products) {
+            const companies = Array.from(new Set(products.map(p => (p.company || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'ckb'));
+            const sig = companies.join('|');
+            if (sig === _lastCompanyOptionsSignature) return; // بێ پێویست دووبارە دروستنەکرێتەوە
+            _lastCompanyOptionsSignature = sig;
+
+            const select = document.getElementById('invCompanyFilterSelect');
+            if (select) {
+                const current = select.value || 'all';
+                select.innerHTML = '<option value="all">🏢 هەموو شریکەکان</option>' +
+                    companies.map(c => `<option value="${c}">${c}</option>`).join('');
+                if (companies.includes(current) || current === 'all') select.value = current;
+            }
+
+            const datalist = document.getElementById('companyDatalist');
+            if (datalist) {
+                datalist.innerHTML = companies.map(c => `<option value="${c}"></option>`).join('');
+            }
+        }
+
         async function loadProducts(searchTerm = '') {
             const products = getProductsCache();
             const tbody = document.getElementById('productsTableBody');
@@ -5577,6 +5620,9 @@
             setText('invTotalProfit', totalProfitValue.toLocaleString());
             setText('invLowCount', lowOrOutCount);
 
+            // ----- پڕکردنەوەی لیستی شریکەکان (فلتەر + datalist) -----
+            populateCompanyOptions(products);
+
             // ----- گەڕان (بەکارهێنانی ئینگێکسی گەڕانی خێرا) -----
             let filtered = searchTerm
                 ? fastSearchProducts(searchTerm)
@@ -5588,6 +5634,35 @@
                 filtered = filtered.filter(p => p.quantity > 0 && p.quantity <= p.alert);
             } else if (filterVal === 'out') {
                 filtered = filtered.filter(p => p.quantity <= 0);
+            }
+
+            // ----- فلتەرکردن بەپێی شریک/کۆمپانیا -----
+            const companyVal = document.getElementById('invCompanyFilterSelect')?.value || 'all';
+            if (companyVal !== 'all') {
+                filtered = filtered.filter(p => (p.company || 'بێ شریک') === companyVal);
+            }
+
+            // ----- کورتەی ئامار بۆ شریکی دیاریکراو (بڕ و کۆی بەهای کڕین تایبەت بەو شریکە) -----
+            const summaryEl = document.getElementById('companyFilterSummary');
+            if (summaryEl) {
+                if (companyVal !== 'all') {
+                    const companyItems = filtered;
+                    const cCount = companyItems.length;
+                    const cUnits = companyItems.reduce((s, p) => s + (p.quantity || 0), 0);
+                    const cCost = companyItems.reduce((s, p) => s + ((p.cost || 0) * (p.quantity || 0)), 0);
+                    const cSale = companyItems.reduce((s, p) => s + ((p.price || 0) * (p.quantity || 0)), 0);
+                    summaryEl.style.display = 'flex';
+                    summaryEl.innerHTML = `
+                        <span>🏢 <b style="color:var(--amber);">${companyVal}</b></span>
+                        <span>📦 جۆری کاڵا: <b>${cCount}</b></span>
+                        <span>🔢 کۆی دانەکان: <b>${cUnits.toLocaleString()}</b></span>
+                        <span>💸 کۆی بەهای کڕین: <b style="color:var(--red);">${cCost.toLocaleString()}</b> دینار</span>
+                        <span>💰 کۆی بەهای فرۆشتن: <b style="color:var(--green);">${cSale.toLocaleString()}</b> دینار</span>
+                    `;
+                } else {
+                    summaryEl.style.display = 'none';
+                    summaryEl.innerHTML = '';
+                }
             }
 
             // ----- ڕیزکردن -----
@@ -5605,13 +5680,13 @@
             else filtered.sort((a, b) => a.name.localeCompare(b.name, 'ckb'));
             
             if (filtered.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="11" style="text-align: center; color: var(--text3);">هیچ کاڵایەک نەدۆزرایەوە</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="12" style="text-align: center; color: var(--text3);">هیچ کاڵایەک نەدۆزرایەوە</td></tr>';
                 renderProductsPagination(0);
                 return;
             }
 
             // ئەگەر گەران/فلتەر/ڕیزکردن گۆڕابێت، بگەڕێوە بۆ لاپەڕەی یەکەم
-            const signature = searchTerm + '|' + filterVal + '|' + sortVal;
+            const signature = searchTerm + '|' + filterVal + '|' + companyVal + '|' + sortVal;
             if (signature !== _lastProductsSignature) {
                 productsCurrentPage = 1;
                 _lastProductsSignature = signature;
@@ -5651,6 +5726,7 @@
                 <tr class="${rowClass}">
                     <td>${p.barcode}${(Array.isArray(p.extraBarcodes) && p.extraBarcodes.length) ? ` <span style="color:#F59E0B; font-size:11px;" title="${p.extraBarcodes.join(', ')}">(+${p.extraBarcodes.length})</span>` : ''}</td>
                     <td>${p.color ? `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${p.color};margin-left:5px;vertical-align:middle;"></span>` : ''}${p.quickAccess ? '⭐ ' : ''}${p.name}${p.packageSize >= 2 ? ` <span style="background:#8B5CF6;color:var(--text);border-radius:8px;padding:2px 6px;font-size:11px;">📦${p.packageSize}</span>` : ''}${isExpired ? ' <span style="color:#dc3545;font-weight:bold;font-size:11px;">⚠️ بەسەرچوو</span>' : ''}</td>
+                    <td>${p.company ? `<span style="background:${getCompanyColor(p.company)}22; color:${getCompanyColor(p.company)}; border:1px solid ${getCompanyColor(p.company)}; border-radius:12px; padding:3px 10px; font-size:11px; font-weight:700; white-space:nowrap;">🏢 ${p.company}</span>` : '<span style="color:var(--text3); font-size:12px;">---</span>'}</td>
                     <td>${p.price.toLocaleString()}</td>
                     <td>${p.cost.toLocaleString()}</td>
                     <td>
@@ -5747,11 +5823,11 @@
         function exportInventoryCSV() {
             const products = getProductsCache();
             {
-                let csv = '\uFEFFبارکۆد,بارکۆدی زیادە,ناو,نرخی فرۆشتن,نرخی کڕین,بڕی کۆگا,سوود بۆ دانە,کۆی بەهای کۆگا,دۆخ\n';
+                let csv = '\uFEFFبارکۆد,بارکۆدی زیادە,ناو,شریک/کۆمپانیا,نرخی فرۆشتن,نرخی کڕین,بڕی کۆگا,سوود بۆ دانە,کۆی بەهای کۆگا,دۆخ\n';
                 products.forEach(p => {
                     const status = p.quantity <= 0 ? 'تەواوبوو' : (p.quantity <= p.alert ? 'کەمە' : 'باشە');
                     const extra = Array.isArray(p.extraBarcodes) ? p.extraBarcodes.join(' / ') : '';
-                    csv += `${p.barcode},${extra},${p.name},${p.price},${p.cost},${p.quantity},${(p.price - p.cost)},${p.price * p.quantity},${status}\n`;
+                    csv += `${p.barcode},${extra},${p.name},${p.company || ''},${p.price},${p.cost},${p.quantity},${(p.price - p.cost)},${p.price * p.quantity},${status}\n`;
                 });
                 const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
                 const link = document.createElement('a');
@@ -5778,6 +5854,7 @@
                 document.getElementById('productBarcode').value = '';
                 document.getElementById('productPrice').value = '';
                 document.getElementById('productCost').value = '';
+                document.getElementById('productCompany').value = '';
                 document.getElementById('productQuantity').value = '';
                 document.getElementById('productAlert').value = '5';
                 document.getElementById('productPackageSize').value = '';
@@ -5794,6 +5871,7 @@
             const barcode = document.getElementById('productBarcode')?.value.trim();
             const price = parseFloat(document.getElementById('productPrice')?.value);
             const cost = parseFloat(document.getElementById('productCost')?.value);
+            const company = document.getElementById('productCompany')?.value.trim() || '';
             const quantity = parseFloat(document.getElementById('productQuantity')?.value) || 0;
             const alertLevel = parseFloat(document.getElementById('productAlert')?.value) || 5;
             const unit = document.getElementById('productUnit')?.value || 'دانە';
@@ -5834,6 +5912,7 @@
                 name,
                 price,
                 cost,
+                company,
                 quantity,
                 alert: alertLevel,
                 unit: unit,
@@ -5866,7 +5945,9 @@
             
             const newCost = prompt('نرخی کڕین:', product.cost);
             if (newCost === null) return;
-            
+
+            const newCompany = prompt('🏢 شریک / کۆمپانیا (ئەگەر نییە بەتاڵ بهێڵەرەوە):', product.company || '');
+
             const newAlert = prompt('ئاستی ئاگادارکردنەوە:', product.alert);
 
             const newPkg = prompt('بڕی پاکێت (ئەگەر هەبێت، بنووسە. ئەگەر نییە 0 بنووسە):', product.packageSize || 0);
@@ -5883,6 +5964,9 @@
             product.name = newName || product.name;
             product.price = parseFloat(newPrice) || product.price;
             product.cost = parseFloat(newCost) || product.cost;
+            if (newCompany !== null) {
+                product.company = newCompany.trim();
+            }
             product.alert = parseInt(newAlert) || product.alert;
             if (newPkg !== null) {
                 const pkg = parseFloat(newPkg);
@@ -8226,7 +8310,7 @@
         let csvParsedRows = [];
 
         const CSV_HINTS = {
-            products: '📋 فۆرماتی داخراو: بارکۆد، بارکۆدی زیادە، ناو، نرخی فرۆشتن، نرخی کڕین، بڕی کۆگا',
+            products: '📋 فۆرماتی داخراو: بارکۆد، بارکۆدی زیادە، ناو، نرخی فرۆشتن، نرخی کڕین، بڕی کۆگا، شریک/کۆمپانیا (خانەی کۆتایی ئارەزوومەندانەیە)',
             cards:    '📋 فۆرماتی داخراو: بەروار، ناوی کارت، دانە، کۆی ڕەسید، کۆی فرۆشتن، سوود',
             sales:    '📋 فۆرماتی داخراو: ژمارەی پسوولە، بەروار، کڕیار، کۆی گشتی، داشکاندن، تێچوون، سوود، شێوازی پارەدان'
         };
@@ -8335,6 +8419,7 @@
                 const price    = parseFloat(cols[3]) || 0;
                 const cost     = parseFloat(cols[4]) || 0;
                 const quantity = parseFloat(cols[5]) || 0;
+                const company  = (cols[6] || '').trim();
                 if (!name) continue;
                 const existIdx = barcode ? products.findIndex(p => p.barcode === barcode) : -1;
                 if (existIdx !== -1) {
@@ -8345,12 +8430,13 @@
                             price: price || old.price,
                             cost:  cost  || old.cost,
                             quantity: quantity !== 0 ? quantity : old.quantity,
+                            company: company || old.company,
                             extraBarcodes: extra ? extra.split('/').map(x=>x.trim()).filter(Boolean) : old.extraBarcodes
                         };
                         updated++;
                     } else { skipped++; }
                 } else {
-                    products.push({ id: (Date.now()+Math.random()).toString(), barcode: barcode||String(Date.now()), name, price, cost, quantity, alert:5,
+                    products.push({ id: (Date.now()+Math.random()).toString(), barcode: barcode||String(Date.now()), name, price, cost, quantity, alert:5, company,
                         extraBarcodes: extra ? extra.split('/').map(x=>x.trim()).filter(Boolean) : [],
                         createdAt: new Date().toISOString(), synced: false });
                     added++;
