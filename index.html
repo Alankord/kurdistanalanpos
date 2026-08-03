@@ -1434,7 +1434,6 @@
                     <div class="card">
                         <div class="card-header" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
                             <span>🛒 سەبەتەی کڕین</span>
-                            <button class="btn btn-primary" style="width:auto; padding:0 14px; margin:0;" onclick="openQuickAddProduct()">➕ کاڵای نوێ</button>
                             <span id="cartShiftCounter" class="cart-shift-counter" title="ژمارەی فرۆشتنەکان لە دوایین سڤرکردنەوەی ژمێریارەوە"></span>
                             <span id="invoiceNo" style="font-size: 14px; color: var(--text2);"></span>
                         </div>
@@ -3777,6 +3776,7 @@
                 const colorStyle = p.color ? `border-right: 4px solid ${p.color};` : '';
                 return `
                     <button class="product-btn" style="${colorStyle}"
+                            title="نرخی کڕین: ${(p.cost || 0).toLocaleString()} د.ع | کۆگا: ${p.quantity}"
                             onclick="addToCart('${p.id}')">
                         <span class="product-stock ${stockClass}">${p.quantity}</span>
                         <div class="product-name">${p.name}</div>
@@ -6041,7 +6041,7 @@
             grid.innerHTML = cards.map(c => {
                 const stock = c.stock || 0;
                 return `
-                <button class="product-btn" onclick="addCardToCart('${c.id}')">
+                <button class="product-btn" title="نرخی کڕین: ${(c.costPrice || 0).toLocaleString()} د.ع | کۆگا: ${stock}" onclick="addCardToCart('${c.id}')">
                     <div class="product-name">💳 ${c.name}</div>
                     <div class="product-price">${c.sellPrice.toLocaleString()} د.ع</div>
                     <small style="color:#F59E0B; font-weight:bold; font-size:11px;">📦 ${stock}</small>
@@ -6061,7 +6061,7 @@
                     grid.innerHTML = cards.map(c => {
                         const stock = c.stock || 0;
                         return `
-                        <button class="product-btn" onclick="addCardToCart('${c.id}')">
+                        <button class="product-btn" title="نرخی کڕین: ${(c.costPrice || 0).toLocaleString()} د.ع | کۆگا: ${stock}" onclick="addCardToCart('${c.id}')">
                             <div class="product-name">💳 ${c.name}</div>
                             <div class="product-price">${c.sellPrice.toLocaleString()} د.ع</div>
                             <small style="color:#F59E0B; font-weight:bold; font-size:11px;">📦 ${stock}</small>
@@ -7659,7 +7659,7 @@
                         if (comboMatch) {
                             const qty = parseInt(comboMatch[1]);
                             const bc = comboMatch[2].trim();
-                            if (qty >= 1 && qty <= 99 && bc) {
+                            if (qty >= 1 && qty <= 999 && bc) {
                                 scanMultiplier = qty;
                                 await handleScannedBarcode(bc);
                             }
@@ -7669,7 +7669,7 @@
                         const multOnly = raw.match(/^(\d+)=$/) || raw.match(/^=(\d+)$/);
                         if (multOnly) {
                             const n = parseInt(multOnly[1]);
-                            if (n >= 1 && n <= 99) {
+                            if (n >= 1 && n <= 999) {
                                 scanMultiplier = n;
                             }
                             this.value = '';
@@ -7695,7 +7695,7 @@
                                 if (finalMatch) {
                                     const finalQty = parseInt(finalMatch[1]);
                                     const finalBc = finalMatch[2].trim();
-                                    if (finalQty >= 1 && finalQty <= 99 && finalBc.length >= 4) {
+                                    if (finalQty >= 1 && finalQty <= 999 && finalBc.length >= 4) {
                                         scanMultiplier = finalQty;
                                         await handleScannedBarcode(finalBc);
                                     }
