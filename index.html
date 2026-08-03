@@ -6911,16 +6911,114 @@
                 <tr>
                     <td>${p.invoiceNo || 'N/A'}</td>
                     <td>${p.createdAt ? new Date(p.createdAt).toLocaleString('ckb') : 'N/A'}</td>
-                    <td title="${itemsNames}">${(p.items || []).length} جۆر کاڵا</td>
+                    <td title="${itemsNames}">
+                        <span>${(p.items || []).length} جۆر کاڵا</span>
+                        <button class="btn btn-secondary" style="width: auto; padding: 3px 8px; font-size: 12px; margin-right: 4px;"
+                                onclick="viewPurchase('${p.invoiceNo}')">👁️ بینین</button>
+                    </td>
                     <td>${(p.totalCost || 0).toLocaleString()} د.ع</td>
                     <td>${p.cashierName || '-'}</td>
                     <td>
+                        <button class="btn btn-info" style="width: auto; padding: 5px 10px; font-size: 12px; margin: 2px;"
+                                onclick="editPurchase('${p.invoiceNo}')">✏️ دەستکاری</button>
                         <button class="btn btn-danger" style="width: auto; padding: 5px 10px; font-size: 12px; margin: 2px;"
                                 onclick="deletePurchase('${p.invoiceNo}')">🗑️ سڕینەوە</button>
                     </td>
                 </tr>
             `;
             }).join('');
+        }
+
+        // بینینی وردەکارییەکانی کڕینێک (ناوی هەموو کاڵاکان و بڕیان) وەک لیستێکی خوێندنەوەی ئاسان
+        function viewPurchase(invoiceNo) {
+            const purchases = getPurchasesCache();
+            const purchase = purchases.find(p => p.invoiceNo === invoiceNo);
+            if (!purchase) return;
+
+            const items = purchase.items || [];
+            const lines = items.map(i => `• ${i.name} — ${i.quantity} دانە × ${(i.cost || 0).toLocaleString()} د.ع = ${((i.cost || 0) * i.quantity).toLocaleString()} د.ع`);
+            const details =
+                `🧾 پسوولەی کڕین: ${invoiceNo}\n` +
+                `📅 ${purchase.createdAt ? new Date(purchase.createdAt).toLocaleString('ckb') : 'N/A'}\n` +
+                `👤 کارمەند: ${purchase.cashierName || '-'}\n\n` +
+                lines.join('\n') +
+                `\n\n💸 کۆی تێچوون: ${(purchase.totalCost || 0).toLocaleString()} د.ع`;
+            alert(details);
+        }
+
+        // دەستکاریکردنی کڕینێکی تۆمارکراو: بۆ ڕاستکردنەوەی بڕی هەڵە یان لابردنی کاڵایەکی هەڵە
+        // بەبێ پێویستی بە سڕینەوەی هەموو کڕینەکە. کۆگا بەپێی جیاوازی نێوان بڕی کۆن و نوێ ڕاست دەکرێتەوە.
+        async function editPurchase(invoiceNo) {
+            const purchases = getPurchasesCache();
+            const purchase = purchases.find(p => p.invoiceNo === invoiceNo);
+            if (!purchase) return;
+
+            const items = purchase.items || [];
+            if (!items.length) {
+                showToast('ئەم کڕینە هیچ کاڵایەکی تێدا نییە', 'error');
+                return;
+            }
+
+            const products = getProductsCache();
+            const newQuantities = [];
+
+            for (const item of items) {
+                const realId = item._realProductId || item.productId;
+                const product = products.find(p => String(p.id) === String(realId));
+                const label = item.name || (product ? product.name : 'کاڵا');
+                const answer = prompt(
+                    `✏️ "${label}"\nنرخی کڕین بۆ دانەیەک: ${(item.cost || 0).toLocaleString()} د.ع\nبڕی ئێستا: ${item.quantity}\n\nبڕی نوێ بنووسە (بۆ لابردنی ئەم کاڵایە لە کڕینەکە، 0 بنووسە):`,
+                    item.quantity
+                );
+                if (answer === null) {
+                    showToast('گۆڕانکاری هەڵوەشایەوە', 'warning');
+                    return;
+                }
+                const parsed = parseFloat(answer);
+                if (isNaN(parsed) || parsed < 0) {
+                    showToast('⚠️ بڕی نادروست نووسرا، گۆڕانکاری هەڵوەشایەوە', 'error');
+                    return;
+                }
+                newQuantities.push(parsed);
+            }
+
+            if (!confirm(`دڵنیای لە پاشەکەوتکردنی گۆڕانکارییەکان بۆ کڕینی (${invoiceNo})؟\nبڕی کۆگا بەپێی جیاوازی نوێ و کۆن ڕاست دەکرێتەوە.`)) return;
+
+            const changedProducts = [];
+            const finalItems = [];
+            for (let i = 0; i < items.length; i++) {
+                const item = items[i];
+                const newQty = newQuantities[i];
+                const realId = item._realProductId || item.productId;
+                const product = products.find(p => String(p.id) === String(realId));
+                const diff = newQty - item.quantity;
+                if (product && diff !== 0) {
+                    const stockDelta = item._pkgSize ? (diff * item._pkgSize) : diff;
+                    product.quantity = (product.quantity || 0) + stockDelta;
+                    changedProducts.push(product);
+                }
+                if (newQty > 0) {
+                    finalItems.push({ ...item, quantity: newQty });
+                }
+            }
+
+            if (changedProducts.length) await batchSaveProducts(changedProducts);
+
+            if (finalItems.length === 0) {
+                const updatedPurchases = purchases.filter(p => p.invoiceNo !== invoiceNo);
+                savePurchasesCache(updatedPurchases);
+                showToast('🗑️ هەموو کاڵاکانی کڕینەکە لابران، تۆمارەکە بە تەواوی سڕایەوە');
+            } else {
+                purchase.items = finalItems;
+                purchase.itemCount = finalItems.reduce((sum, it) => sum + it.quantity, 0);
+                purchase.totalCost = finalItems.reduce((sum, it) => sum + ((it.cost || 0) * it.quantity), 0);
+                purchase.totalSellValue = finalItems.reduce((sum, it) => sum + ((it.price || 0) * it.quantity), 0);
+                savePurchasesCache(purchases);
+                showToast('✅ کڕینەکە بە سەرکەوتوویی نوێکرایەوە');
+            }
+
+            await loadReports();
+            await displayProducts();
         }
 
         // سڕینەوەی کڕینێکی هەڵە: کۆگای کاڵاکان دەگەڕێنرێتەوە دواوە (کەمدەکرێتەوە) و تۆمارەکە دەسڕدرێتەوە
