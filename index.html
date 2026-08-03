@@ -4097,7 +4097,7 @@
 
                     return `
                         <tr style="${rowStyle}" data-is-return="${isReturn ? '1' : '0'}">
-                            <td>
+                            <td title="${srcProduct ? `نرخی کڕین: ${(srcProduct.cost || 0).toLocaleString()} د.ع | کۆگا: ${srcProduct.quantity}` : ''}">
                                 ${item.name}
                                 <small style="color:${isReturn ? 'var(--red)' : (isPkg ? '#8B5CF6' : '#F59E0B')};">(${unitLabel})${isReturn ? ' ↩️ گەڕاندنەوە' : ''}</small>
                                 ${switchBtn}
