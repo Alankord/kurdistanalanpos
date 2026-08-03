@@ -5204,8 +5204,8 @@
                 return `
                 <tr class="${rowClass}">
                     <td>${p.barcode}${(Array.isArray(p.extraBarcodes) && p.extraBarcodes.length) ? ` <span style="color:#F59E0B; font-size:11px;" title="${p.extraBarcodes.join(', ')}">(+${p.extraBarcodes.length})</span>` : ''}</td>
-                    <td>${p.color ? `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${p.color};margin-left:5px;vertical-align:middle;"></span>` : ''}${p.quickAccess ? '⭐ ' : ''}${p.name}${p.packageSize >= 2 ? ` <span style="background:#8B5CF6;color:var(--text);border-radius:8px;padding:2px 6px;font-size:11px;">📦${p.packageSize}</span>` : ''}${isExpired ? ' <span style="color:#dc3545;font-weight:bold;font-size:11px;">⚠️ بەسەرچوو</span>' : ''}</td>
-                    <td>${p.company ? `<span style="background:${getCompanyColor(p.company)}22; color:${getCompanyColor(p.company)}; border:1px solid ${getCompanyColor(p.company)}; border-radius:12px; padding:3px 10px; font-size:11px; font-weight:700; white-space:nowrap;">🏢 ${p.company}</span>` : '<span style="color:var(--text3); font-size:12px;">---</span>'}</td>
+                    <td onclick="editProductNameOnly('${p.id}')" style="cursor:pointer;" title="کلیک بکە بۆ گۆڕینی ناو">${p.color ? `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${p.color};margin-left:5px;vertical-align:middle;"></span>` : ''}${p.quickAccess ? '⭐ ' : ''}${p.name}${p.packageSize >= 2 ? ` <span style="background:#8B5CF6;color:var(--text);border-radius:8px;padding:2px 6px;font-size:11px;">📦${p.packageSize}</span>` : ''}${isExpired ? ' <span style="color:#dc3545;font-weight:bold;font-size:11px;">⚠️ بەسەرچوو</span>' : ''}</td>
+                    <td onclick="editProductCompanyOnly('${p.id}')" style="cursor:pointer;" title="کلیک بکە بۆ گۆڕینی شریک/کۆمپانیا">${p.company ? `<span style="background:${getCompanyColor(p.company)}22; color:${getCompanyColor(p.company)}; border:1px solid ${getCompanyColor(p.company)}; border-radius:12px; padding:3px 10px; font-size:11px; font-weight:700; white-space:nowrap;">🏢 ${p.company}</span>` : '<span style="color:var(--text3); font-size:12px;">---</span>'}</td>
                     <td>${p.price.toLocaleString()}</td>
                     <td>${p.cost.toLocaleString()}</td>
                     <td>
@@ -5487,6 +5487,38 @@
             await loadProducts();
             await displayProducts();
             showToast('✅ کاڵا زیادکرا و ئامادەیە بۆ فرۆشتن!');
+        }
+
+        // گۆڕینی خێرای تەنها ناوی کاڵا (بەبێ پرسیارکردنی هیچ شتێکی تر) - کلیک لەسەر ناوی کاڵا لە خشتەدا
+        async function editProductNameOnly(id) {
+            const products = getProductsCache();
+            const product = products.find(p => String(p.id) === String(id));
+            if (!product) return;
+
+            const newName = prompt('ناوی نوێ:', product.name);
+            if (newName === null || !newName.trim()) return;
+
+            product.name = newName.trim();
+            saveProduct(product);
+            await loadProducts(document.getElementById('productsSearchBox')?.value || '');
+            await displayProducts();
+            showToast(`✅ ناو گۆڕدرا بۆ: ${product.name}`);
+        }
+
+        // گۆڕینی خێرای تەنها شریک/کۆمپانیای کاڵا (بەبێ پرسیارکردنی هیچ شتێکی تر) - کلیک لەسەر شریک لە خشتەدا
+        async function editProductCompanyOnly(id) {
+            const products = getProductsCache();
+            const product = products.find(p => String(p.id) === String(id));
+            if (!product) return;
+
+            const newCompany = prompt('🏢 شریک / کۆمپانیا (ئەگەر نییە بەتاڵ بهێڵەرەوە):', product.company || '');
+            if (newCompany === null) return;
+
+            product.company = newCompany.trim();
+            saveProduct(product);
+            await loadProducts(document.getElementById('productsSearchBox')?.value || '');
+            await displayProducts();
+            showToast(`✅ شریک گۆڕدرا بۆ: ${product.company || '---'}`);
         }
 
         async function editProduct(id) {
