@@ -5505,17 +5505,63 @@
             showToast(`✅ ناو گۆڕدرا بۆ: ${product.name}`);
         }
 
-        // گۆڕینی خێرای تەنها شریک/کۆمپانیای کاڵا (بەبێ پرسیارکردنی هیچ شتێکی تر) - کلیک لەسەر شریک لە خشتەدا
-        async function editProductCompanyOnly(id) {
+        // گۆڕینی خێرای تەنها شریک/کۆمپانیای کاڵا - کلیک لەسەر شریک لە خشتەدا، لیستی شریکە هەبووەکان پیشان دەدرێت
+        let _companyEditProductId = null;
+        let _companyEditAllCompanies = [];
+        function editProductCompanyOnly(id) {
             const products = getProductsCache();
             const product = products.find(p => String(p.id) === String(id));
             if (!product) return;
 
-            const newCompany = prompt('🏢 شریک / کۆمپانیا (ئەگەر نییە بەتاڵ بهێڵەرەوە):', product.company || '');
-            if (newCompany === null) return;
+            _companyEditProductId = id;
+            _companyEditAllCompanies = Array.from(new Set(products.map(p => (p.company || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'ckb'));
 
-            product.company = newCompany.trim();
+            const input = document.getElementById('companyEditInput');
+            input.value = product.company || '';
+            document.getElementById('companyEditModalOverlay').classList.add('active');
+            renderCompanySuggestions();
+            setTimeout(() => { input.focus(); input.select(); }, 50);
+        }
+
+        // پیشاندانی لیستی شریکە هەبووەکان وەک دوگمەی کلیک‌کراو (لە جیاتی <datalist> کە لە مۆبایلدا باش کارناکات)
+        function renderCompanySuggestions() {
+            const box = document.getElementById('companyEditSuggestions');
+            if (!box) return;
+            const typed = (document.getElementById('companyEditInput')?.value || '').trim().toLowerCase();
+            const matches = _companyEditAllCompanies.filter(c => !typed || c.toLowerCase().includes(typed));
+
+            if (matches.length === 0) {
+                box.innerHTML = '';
+                return;
+            }
+            box.innerHTML = matches.map(c => `
+                <div onclick="selectCompanySuggestion('${c.replace(/'/g, "\\'")}')"
+                     style="padding:10px 12px; cursor:pointer; border-bottom:1px solid var(--border);">🏢 ${c}</div>
+            `).join('');
+        }
+
+        function selectCompanySuggestion(name) {
+            const input = document.getElementById('companyEditInput');
+            input.value = name;
+            document.getElementById('companyEditSuggestions').innerHTML = '';
+        }
+
+        function closeCompanyEditModal() {
+            document.getElementById('companyEditModalOverlay').classList.remove('active');
+            document.getElementById('companyEditSuggestions').innerHTML = '';
+            _companyEditProductId = null;
+        }
+
+        async function confirmCompanyEdit() {
+            if (!_companyEditProductId) { closeCompanyEditModal(); return; }
+            const products = getProductsCache();
+            const product = products.find(p => String(p.id) === String(_companyEditProductId));
+            if (!product) { closeCompanyEditModal(); return; }
+
+            const newCompany = document.getElementById('companyEditInput').value.trim();
+            product.company = newCompany;
             saveProduct(product);
+            closeCompanyEditModal();
             await loadProducts(document.getElementById('productsSearchBox')?.value || '');
             await displayProducts();
             showToast(`✅ شریک گۆڕدرا بۆ: ${product.company || '---'}`);
@@ -8198,6 +8244,24 @@
             <div class="csv-modal-footer">
                 <button class="csv-btn-cancel" onclick="closeImportModal()">❌ داخستن</button>
                 <button class="csv-btn-import" id="csvImportBtn" onclick="doCSVImport()" disabled>✅ کرنا تێدا</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== مۆداڵی گۆڕینی خێرای شریک/کۆمپانیا ==================== -->
+    <div id="companyEditModalOverlay" class="csv-modal-overlay" onclick="if(event.target===this) closeCompanyEditModal()">
+        <div class="csv-modal" style="max-width:420px;">
+            <h3>🏢 شریک / کۆمپانیا</h3>
+            <input type="text" id="companyEditInput" class="form-control" autocomplete="off"
+                   placeholder="ناوی شریک هەڵبژێرە یان بنووسە... (بۆ لابردن بەتاڵی بهێڵەوە)"
+                   style="width:100%; margin-bottom:8px;"
+                   oninput="renderCompanySuggestions()"
+                   onfocus="renderCompanySuggestions()"
+                   onkeydown="if(event.key==='Enter'){event.preventDefault(); confirmCompanyEdit();}">
+            <div id="companyEditSuggestions" style="max-height:180px; overflow-y:auto; margin-bottom:16px; border-radius:8px; background:var(--surface2);"></div>
+            <div style="display:flex; gap:10px;">
+                <button class="btn btn-success" style="flex:1; margin:0;" onclick="confirmCompanyEdit()">✅ باشە</button>
+                <button class="btn" style="flex:1; margin:0; background:var(--surface3); color:var(--text2);" onclick="closeCompanyEditModal()">✖ پاشگەزبوونەوە</button>
             </div>
         </div>
     </div>
